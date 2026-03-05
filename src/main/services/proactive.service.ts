@@ -3,6 +3,7 @@ import OpenAI from 'openai'
 import { loadSettings } from '../config/settings.config'
 import { runOpenAIAdapter } from './agent/openai-adapter'
 import { runGeminiAdapter, createToolUseIdMap } from './agent/gemini-adapter'
+import { detectCustomProtocol } from './agent/utils'
 import { agentService, type MessagePlatform } from './agent.service'
 import { proactiveStorage } from './proactive.storage'
 import { infraService, type IncomingMessageEvent, type OutgoingMessageEvent } from './infra.service'
@@ -542,11 +543,21 @@ class ProactiveService {
         if (!apiKey) throw new Error('API key not configured for gemini. Please set it in Settings.')
         console.log(`[Proactive] Using LLM provider: ${provider}, model: ${model}`)
         return { client: null, model, maxTokens: settings.maxTokens || 4096, provider, geminiApiKey: apiKey }
-      case 'custom':
+      case 'custom': {
         apiKey = settings.customApiKey
         baseURL = settings.customBaseUrl || undefined
         model = settings.customModel
+        if (!apiKey) throw new Error('API key not configured for custom provider. Please set it in Settings.')
+        const protocol = detectCustomProtocol(baseURL, model)
+        console.log(`[Proactive] Custom provider auto-detected protocol: ${protocol}, model: ${model}, baseURL: ${baseURL}`)
+        if (protocol === 'openai') {
+          return { client: new OpenAI({ apiKey, baseURL }), model, maxTokens: settings.maxTokens || 4096, provider: 'openai' }
+        }
+        if (protocol === 'gemini') {
+          return { client: null, model, maxTokens: settings.maxTokens || 4096, provider: 'gemini', geminiApiKey: apiKey }
+        }
         break
+      }
       default:
         apiKey = settings.claudeApiKey
         model = settings.claudeModel

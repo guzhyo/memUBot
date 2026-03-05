@@ -22,6 +22,12 @@ export interface CreateClientResult {
   geminiApiKey?: string
 }
 
+export function detectCustomProtocol(baseUrl: string | undefined, model: string): 'anthropic' | 'openai' | 'gemini' {
+  if (baseUrl && /anthropic/i.test(baseUrl)) return 'anthropic'
+  if (!baseUrl && /^gemini/i.test(model)) return 'gemini'
+  return 'openai'
+}
+
 export async function createClient(): Promise<CreateClientResult> {
   const settings = await loadSettings()
 
@@ -66,11 +72,21 @@ export async function createClient(): Promise<CreateClientResult> {
       if (!apiKey) throw new Error('API key not configured for gemini. Please set it in Settings.')
       console.log(`[Agent] Using LLM provider: ${provider}, model: ${model}`)
       return { client: null, model, maxTokens: settings.maxTokens, provider, geminiApiKey: apiKey }
-    case 'custom':
+    case 'custom': {
       apiKey = settings.customApiKey
       baseURL = settings.customBaseUrl || undefined
       model = settings.customModel
+      if (!apiKey) throw new Error('API key not configured for custom provider. Please set it in Settings.')
+      const protocol = detectCustomProtocol(baseURL, model)
+      console.log(`[Agent] Custom provider auto-detected protocol: ${protocol}, model: ${model}, baseURL: ${baseURL}`)
+      if (protocol === 'openai') {
+        return { client: new OpenAI({ apiKey, baseURL }), model, maxTokens: settings.maxTokens, provider: 'openai' }
+      }
+      if (protocol === 'gemini') {
+        return { client: null, model, maxTokens: settings.maxTokens, provider: 'gemini', geminiApiKey: apiKey }
+      }
       break
+    }
     default:
       apiKey = settings.claudeApiKey
       model = settings.claudeModel || 'claude-opus-4-5'

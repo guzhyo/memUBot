@@ -37,6 +37,34 @@ describe('convertToolsToGemini', () => {
   it('returns empty array for no tools', () => {
     expect(convertToolsToGemini([])).toEqual([]);
   });
+
+  it('strips $schema and additionalProperties from tool parameters', () => {
+    const tools: Anthropic.Tool[] = [
+      {
+        name: 'test_tool',
+        description: 'A test',
+        input_schema: {
+          type: 'object' as const,
+          $schema: 'http://json-schema.org/draft-07/schema#',
+          additionalProperties: false,
+          properties: {
+            query: { type: 'string', $schema: 'nested' },
+          },
+          required: ['query'],
+        },
+      },
+    ];
+
+    const result = convertToolsToGemini(tools);
+    const params = result[0].functionDeclarations![0].parameters as Record<string, unknown>;
+    expect(params).not.toHaveProperty('$schema');
+    expect(params).not.toHaveProperty('additionalProperties');
+    expect(params).not.toHaveProperty('type');
+    expect(params).toHaveProperty('properties');
+    const props = params.properties as Record<string, Record<string, unknown>>;
+    expect(props.query).not.toHaveProperty('$schema');
+    expect(props.query).toHaveProperty('type');
+  });
 });
 
 describe('convertMessagesToGemini', () => {
