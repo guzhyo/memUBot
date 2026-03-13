@@ -140,6 +140,11 @@ export interface AppSettings {
   feishuAppSecret: string
   feishuAutoConnect: boolean
 
+  // QQ settings
+  qqAppId: string
+  qqAppSecret: string
+  qqAutoConnect: boolean
+
   // General settings
   language: string
 
@@ -235,6 +240,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   feishuAppId: '',
   feishuAppSecret: '',
   feishuAutoConnect: true,
+
+  qqAppId: '',
+  qqAppSecret: '',
+  qqAutoConnect: true,
 
   language: 'en',
 

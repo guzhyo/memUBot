@@ -78,6 +78,9 @@ export interface AppSettings {
   feishuAppId: string
   feishuAppSecret: string
   feishuAutoConnect: boolean
+  qqAppId: string
+  qqAppSecret: string
+  qqAutoConnect: boolean
   language: string
   tavilyApiKey: string
 }

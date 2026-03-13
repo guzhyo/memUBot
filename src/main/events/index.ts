@@ -52,6 +52,9 @@ export type AppEventType =
   | 'feishu:new-message'
   | 'feishu:status-changed'
   | 'feishu:messages-refresh'
+  | 'qq:new-message'
+  | 'qq:status-changed'
+  | 'qq:messages-refresh'
   | 'llm:status-changed'
   | 'llm:activity-changed'
   | 'service:status-changed'
@@ -244,6 +247,31 @@ class AppEventEmitter extends EventEmitter {
   }
 
   /**
+   * Emit QQ new message event
+   */
+  emitQQNewMessage(message: AppMessage): void {
+    console.log('[Events] Emitting QQ new message:', message.id)
+    this.emit('qq:new-message', message)
+    this.sendToRenderer('qq:new-message', message)
+  }
+
+  /**
+   * Emit QQ status changed event
+   */
+  emitQQStatusChanged(status: {
+    platform: string
+    isConnected: boolean
+    username?: string
+    botName?: string
+    avatarUrl?: string
+    error?: string
+  }): void {
+    console.log('[Events] Emitting QQ status changed:', status)
+    this.emit('qq:status-changed', status)
+    this.sendToRenderer('qq:status-changed', status)
+  }
+
+  /**
    * Emit service status changed event
    */
   emitServiceStatusChanged(serviceId: string, status: ServiceStatusType): void {
@@ -265,7 +293,7 @@ class AppEventEmitter extends EventEmitter {
    * Emit messages refresh event for a platform
    * Used after deleting chat history to refresh UI
    */
-  emitMessagesRefresh(platform: 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu'): void {
+  emitMessagesRefresh(platform: 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'qq'): void {
     const eventName = `${platform}:messages-refresh` as AppEventType
     console.log(`[Events] Emitting messages refresh for ${platform}`)
     this.emit(eventName, {})

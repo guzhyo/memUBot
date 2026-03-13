@@ -11,6 +11,7 @@ import { telegramStorage } from '../apps/telegram/storage'
 import { discordStorage } from '../apps/discord/storage'
 import { slackStorage } from '../apps/slack/storage'
 import { feishuStorage } from '../apps/feishu/storage'
+import { qqStorage } from '../apps/qq/storage'
 import type { ConversationMessage, AgentResponse } from '../types'
 import * as fs from 'fs/promises'
 
@@ -932,6 +933,60 @@ export class AgentService {
             isFromBot: m.isFromBot
           })
         }
+      } else if (platform === 'qq') {
+        const storedMessages = await qqStorage.getMessages(storageLoadLimit, chatId)
+        for (const m of storedMessages) {
+          const hasImages = m.attachments?.some(a => a.contentType?.startsWith('image/'))
+          if (hasImages && !m.isFromBot) {
+            const imageAttachments = m.attachments?.filter(a => a.contentType?.startsWith('image/')) || []
+            const imageContents: Anthropic.ContentBlockParam[] = []
+            const imagePaths: string[] = []
+
+            for (const att of imageAttachments.slice(0, 3)) {
+              if (att.url && !att.url.startsWith('http')) {
+                try {
+                  let imageData: Buffer<ArrayBufferLike> = await fs.readFile(att.url)
+                  let mediaType = detectImageMediaType(imageData)
+                  const rawSizeMB = imageData.length / (1024 * 1024)
+
+                  if (rawSizeMB > MAX_BASE64_RAW_SIZE_MB) {
+                    const compressed = compressImageForLLM(imageData, path.basename(att.url))
+                    imageData = compressed.buffer
+                    mediaType = compressed.mediaType
+                  }
+
+                  imageContents.push({
+                    type: 'image',
+                    source: { type: 'base64', media_type: mediaType, data: imageData.toString('base64') }
+                  })
+                  imagePaths.push(att.url)
+                } catch (err) {
+                  console.log(`[Agent] Could not load historical QQ image: ${att.url}`)
+                }
+              }
+            }
+
+            if (imageContents.length > 0 || imagePaths.length > 0) {
+              const pathInfo = imagePaths.map((p, i) => `[Image ${i + 1} local path: ${p}]`).join('\n')
+              const textParts = [pathInfo]
+              if (m.text) textParts.push(m.text)
+
+              if (imageContents.length > 0) {
+                imageContents.push({ type: 'text', text: textParts.join('\n\n') })
+                messages.push({
+                  text: undefined,
+                  isFromBot: false,
+                  _multimodal: imageContents
+                } as { text?: string; isFromBot: boolean; _multimodal?: Anthropic.ContentBlockParam[] })
+              } else {
+                messages.push({ text: textParts.join('\n\n'), isFromBot: false })
+              }
+              continue
+            }
+          }
+
+          messages.push({ text: m.text, isFromBot: m.isFromBot })
+        }
       }
 
       // Convert to Anthropic message format
@@ -1066,10 +1121,11 @@ export class AgentService {
       // Check if the message is already in conversation history (loaded from storage)
       // This happens when storage is updated before calling processMessage
       const lastMessage = this.conversationHistory[this.conversationHistory.length - 1]
-      const isAlreadyInHistory = lastMessage && 
-        lastMessage.role === 'user' && 
-        typeof lastMessage.content === 'string' && 
-        lastMessage.content === userMessage
+      const isAlreadyInHistory = lastMessage &&
+        lastMessage.role === 'user' &&
+        typeof lastMessage.content === 'string' &&
+        lastMessage.content === userMessage &&
+        imageUrls.length === 0
       
       if (isAlreadyInHistory) {
         console.log(`[Agent] Message already in history from storage, skipping duplicate add to conversationHistory`)

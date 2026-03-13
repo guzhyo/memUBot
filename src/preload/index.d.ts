@@ -37,7 +37,7 @@ interface MessageAttachment {
 // App message type
 interface AppMessage {
   id: string
-  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu'
+  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu' | 'qq'
   chatId?: string
   senderId?: string
   senderName: string
@@ -50,7 +50,7 @@ interface AppMessage {
 
 // Bot status type
 interface BotStatus {
-  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu'
+  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu' | 'qq'
   isConnected: boolean
   username?: string
   botName?: string
@@ -124,6 +124,9 @@ interface AppSettings {
   feishuAppId: string
   feishuAppSecret: string
   feishuAutoConnect: boolean
+  qqAppId: string
+  qqAppSecret: string
+  qqAutoConnect: boolean
   language: string
   experimentalVisualMode: boolean
   experimentalComputerUse: boolean
@@ -222,6 +225,17 @@ interface FeishuApi {
   onMessagesRefresh: (callback: () => void) => () => void
 }
 
+interface QQApi {
+  connect: () => Promise<IpcResponse>
+  disconnect: () => Promise<IpcResponse>
+  getStatus: () => Promise<IpcResponse<BotStatus>>
+  getMessages: (limit?: number) => Promise<IpcResponse<AppMessage[]>>
+  // Event listeners (returns unsubscribe function)
+  onNewMessage: (callback: (message: AppMessage) => void) => () => void
+  onStatusChanged: (callback: (status: BotStatus) => void) => () => void
+  onMessagesRefresh: (callback: () => void) => () => void
+}
+
 // MCP Server Configuration
 interface McpServerConfig {
   [key: string]: {
@@ -281,7 +295,7 @@ interface StorageInfo {
 }
 
 // Platform type
-type Platform = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu'
+type Platform = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'qq'
 
 // Bound user type
 interface BoundUser {
@@ -490,6 +504,7 @@ declare global {
     slack: SlackApi
     line: LineApi
     feishu: FeishuApi
+    qq: QQApi
     settings: SettingsApi
     security: SecurityApi
     llm: LLMApi

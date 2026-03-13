@@ -45,5 +45,12 @@ export const platformColors: Record<string, ThemeColors> = {
     primaryDark: '#8BABFF',
     secondary: '#5B8FF9',
     secondaryDark: '#B5C8FF'
+  },
+  qq: {
+    primary: '#12B7F5',
+    primaryLight: '#5ECFF7',
+    primaryDark: '#7DD6F9',
+    secondary: '#5ECFF7',
+    secondaryDark: '#B3EAFD'
   }
 }

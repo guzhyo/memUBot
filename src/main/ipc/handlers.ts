@@ -7,6 +7,7 @@ import { setupWhatsAppHandlers } from './whatsapp.handlers'
 import { setupSlackHandlers } from './slack.handlers'
 import { setupLineHandlers } from './line.handlers'
 import { setupFeishuHandlers } from './feishu.handlers'
+import { setupQQHandlers } from './qq.handlers'
 import { setupSettingsHandlers } from './settings.handlers'
 import { setupSecurityHandlers } from './security.handlers'
 import { setupLLMHandlers } from './llm.handlers'
@@ -27,6 +28,7 @@ export async function setupIpcHandlers(): Promise<void> {
   setupSlackHandlers()
   setupLineHandlers()
   setupFeishuHandlers()
+  setupQQHandlers()
   setupSettingsHandlers()
   setupSecurityHandlers()
   setupLLMHandlers()

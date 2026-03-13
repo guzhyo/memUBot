@@ -177,6 +177,27 @@ const feishuApi = {
   }
 }
 
+// QQ API (single-user mode)
+const qqApi = {
+  connect: () => ipcRenderer.invoke('qq:connect'),
+  disconnect: () => ipcRenderer.invoke('qq:disconnect'),
+  getStatus: () => ipcRenderer.invoke('qq:status'),
+  getMessages: (limit?: number) => ipcRenderer.invoke('qq:get-messages', limit),
+  // Event listeners
+  onNewMessage: (callback: (message: unknown) => void) => {
+    ipcRenderer.on('qq:new-message', (_event, message) => callback(message))
+    return () => ipcRenderer.removeAllListeners('qq:new-message')
+  },
+  onStatusChanged: (callback: (status: unknown) => void) => {
+    ipcRenderer.on('qq:status-changed', (_event, status) => callback(status))
+    return () => ipcRenderer.removeAllListeners('qq:status-changed')
+  },
+  onMessagesRefresh: (callback: () => void) => {
+    ipcRenderer.on('qq:messages-refresh', () => callback())
+    return () => ipcRenderer.removeAllListeners('qq:messages-refresh')
+  }
+}
+
 // LLM API
 const llmApi = {
   getStatus: () => ipcRenderer.invoke('llm:get-status'),
@@ -269,6 +290,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('slack', slackApi)
     contextBridge.exposeInMainWorld('line', lineApi)
     contextBridge.exposeInMainWorld('feishu', feishuApi)
+    contextBridge.exposeInMainWorld('qq', qqApi)
     contextBridge.exposeInMainWorld('settings', settingsApi)
     contextBridge.exposeInMainWorld('security', securityApi)
     contextBridge.exposeInMainWorld('llm', llmApi)
@@ -298,6 +320,8 @@ if (process.contextIsolated) {
   window.line = lineApi
   // @ts-ignore (define in dts)
   window.feishu = feishuApi
+  // @ts-ignore (define in dts)
+  window.qq = qqApi
   // @ts-ignore (define in dts)
   window.settings = settingsApi
   // @ts-ignore (define in dts)

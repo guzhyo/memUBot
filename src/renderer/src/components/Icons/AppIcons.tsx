@@ -74,6 +74,20 @@ export function LineIcon({ className, ...props }: IconProps): JSX.Element {
   )
 }
 
+// Official QQ icon
+export function QQIcon({ className, ...props }: IconProps): JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      {...props}
+    >
+      <path d="M12 .25C5.787.25.75 5.287.75 11.5c0 3.38 1.516 6.407 3.908 8.448L3.75 22.5l3.5-1.25c1.458.75 3.104 1.25 4.75 1.25s3.292-.5 4.75-1.25l3.5 1.25-.908-2.552C21.734 17.907 23.25 14.88 23.25 11.5 23.25 5.287 18.213.25 12 .25zm-3.5 13.5c-.69 0-1.25-.56-1.25-1.25S7.81 11.25 8.5 11.25s1.25.56 1.25 1.25-.56 1.25-1.25 1.25zm7 0c-.69 0-1.25-.56-1.25-1.25s.56-1.25 1.25-1.25 1.25.56 1.25 1.25-.56 1.25-1.25 1.25z" />
+    </svg>
+  )
+}
+
 // Official Feishu (Lark) icon
 export function FeishuIcon({ className, ...props }: IconProps): JSX.Element {
   return (

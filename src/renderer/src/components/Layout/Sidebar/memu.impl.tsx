@@ -6,7 +6,7 @@ import { Settings, Sun, Moon, Monitor } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useThemeStore, type ThemeMode } from '../../../stores/themeStore'
 import { appIcon } from '../../../assets'
-import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon } from '../../Icons/AppIcons'
+import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon, QQIcon } from '../../Icons/AppIcons'
 import type { MemuSidebarProps } from './types'
 
 export function MemuSidebar({ activeNav, onNavChange }: MemuSidebarProps): JSX.Element {
@@ -91,6 +91,19 @@ export function MemuSidebar({ activeNav, onNavChange }: MemuSidebarProps): JSX.E
           }`}
         >
           <FeishuIcon className="w-[22px] h-[22px]" />
+        </button>
+
+        {/* QQ */}
+        <button
+          onClick={() => onNavChange('qq')}
+          title={t('nav.qq', 'QQ')}
+          className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
+            activeNav === 'qq'
+              ? 'bg-gradient-to-br from-[#12B7F5] to-[#0E9FD8] text-white shadow-lg shadow-[#12B7F5]/25'
+              : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[#12B7F5] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
+          }`}
+        >
+          <QQIcon className="w-[18px] h-[18px]" />
         </button>
       </nav>
 
