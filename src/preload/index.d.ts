@@ -130,6 +130,7 @@ interface AppSettings {
   showAgentActivity: boolean
   tavilyApiKey: string
   preventSleep: boolean
+  fileAccessBoundaryRoot: string
 }
 
 // Agent API interface

@@ -253,7 +253,14 @@
       "viewBoundUsers": "View Bound Users",
       "unbind": "Unbind",
       "unbindConfirm": "Are you sure you want to unbind this user?",
-      "boundAt": "Bound at"
+      "boundAt": "Bound at",
+      "fileBoundary": {
+        "title": "File Access Boundary",
+        "description": "Restrict AI agent file operations to a specific directory",
+        "placeholder": "Leave empty to use home directory",
+        "resetDefault": "Reset to Default",
+        "hint": "Empty = user home directory. The AI agent can only read, write, and delete files within this boundary."
+      }
     },
     "model": {
       "title": "AI Model",

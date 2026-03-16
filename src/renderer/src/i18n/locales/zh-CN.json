@@ -253,7 +253,14 @@
       "viewBoundUsers": "查看已绑定用户",
       "unbind": "解绑",
       "unbindConfirm": "确定要解绑此用户吗？",
-      "boundAt": "绑定时间"
+      "boundAt": "绑定时间",
+      "fileBoundary": {
+        "title": "文件访问边界",
+        "description": "限制 AI 助手的文件操作范围",
+        "placeholder": "留空则使用用户主目录",
+        "resetDefault": "重置为默认",
+        "hint": "留空 = 用户主目录。AI 助手只能在此边界内读取、写入和删除文件。"
+      }
     },
     "model": {
       "title": "AI 模型",

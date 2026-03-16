@@ -155,6 +155,9 @@ export interface AppSettings {
 
   // Power settings
   preventSleep: boolean
+
+  // File access boundary (empty string = os.homedir())
+  fileAccessBoundaryRoot: string
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -249,7 +252,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   tavilyApiKey: '',
 
   // Power settings
-  preventSleep: true
+  preventSleep: true,
+
+  // File access boundary
+  fileAccessBoundaryRoot: ''
 }
 
 /**

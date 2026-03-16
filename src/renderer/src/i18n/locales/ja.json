@@ -253,7 +253,14 @@
       "viewBoundUsers": "バインド済みユーザーを表示",
       "unbind": "バインド解除",
       "unbindConfirm": "このユーザーのバインドを解除しますか？",
-      "boundAt": "バインド日時"
+      "boundAt": "バインド日時",
+      "fileBoundary": {
+        "title": "ファイルアクセス境界",
+        "description": "AIエージェントのファイル操作を特定のディレクトリに制限",
+        "placeholder": "空欄でホームディレクトリを使用",
+        "resetDefault": "デフォルトにリセット",
+        "hint": "空欄 = ユーザーホームディレクトリ。AIエージェントはこの境界内でのみファイルの読み取り、書き込み、削除が可能です。"
+      }
     },
     "model": {
       "title": "AI モデル",

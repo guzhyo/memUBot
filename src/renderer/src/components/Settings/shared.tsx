@@ -80,6 +80,7 @@ export interface AppSettings {
   feishuAutoConnect: boolean
   language: string
   tavilyApiKey: string
+  fileAccessBoundaryRoot: string
 }
 
 // Portal target ID — used by SettingsView containers
