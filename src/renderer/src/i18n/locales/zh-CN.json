@@ -11,6 +11,7 @@
     }
   },
   "nav": {
+    "local": "本地聊天",
     "telegram": "Telegram",
     "discord": "Discord",
     "whatsapp": "WhatsApp",
@@ -513,8 +514,15 @@
       "whatsapp": "连接 WhatsApp 开始聊天。",
       "slack": "在 Slack 中给机器人发消息开始聊天。",
       "line": "连接 Line 机器人开始聊天。",
-      "feishu": "连接机器人，在飞书上开始聊天。"
+      "feishu": "连接机器人，在飞书上开始聊天。",
+      "local": "直接在桌面端和 memU bot 对话。"
     }
+  },
+  "localChat": {
+    "helper": "本地聊天会保存历史，并接入现有记忆链路。",
+    "enterHint": "按 Enter 发送，Shift + Enter 换行。",
+    "clearHistory": "清空本地聊天",
+    "cleared": "本地聊天已清空"
   },
   "status": {
     "online": "在线",

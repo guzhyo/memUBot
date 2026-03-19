@@ -11,6 +11,7 @@ import { telegramStorage } from '../apps/telegram/storage'
 import { discordStorage } from '../apps/discord/storage'
 import { slackStorage } from '../apps/slack/storage'
 import { feishuStorage } from '../apps/feishu/storage'
+import { localStorage } from '../apps/local/storage'
 import type { ConversationMessage, AgentResponse } from '../types'
 import * as fs from 'fs/promises'
 
@@ -849,21 +850,16 @@ export class AgentService {
       const storageLoadLimit = this.getStorageLoadLimit(settings)
       let messages: Array<{ text?: string; isFromBot: boolean }> = []
 
-      if (platform === 'telegram') {
-        const storedMessages = await telegramStorage.getMessages(storageLoadLimit)
-        messages = storedMessages.map(m => ({
-          text: m.text,
-          isFromBot: m.isFromBot
-        }))
-      } else if (platform === 'discord') {
-        const storedMessages = await discordStorage.getMessages(storageLoadLimit)
-        messages = storedMessages.map(m => ({
-          text: m.text,
-          isFromBot: m.isFromBot
-        }))
-      } else if (platform === 'slack') {
-        const storedMessages = await slackStorage.getMessages(storageLoadLimit)
-        messages = storedMessages.map(m => ({
+      if (platform === 'telegram' || platform === 'discord' || platform === 'slack' || platform === 'local') {
+        const storageReaders = {
+          telegram: () => telegramStorage.getMessages(storageLoadLimit),
+          discord: () => discordStorage.getMessages(storageLoadLimit),
+          slack: () => slackStorage.getMessages(storageLoadLimit),
+          local: () => localStorage.getMessages(storageLoadLimit, chatId || 'default')
+        } as const
+
+        const storedMessages = await storageReaders[platform]()
+        messages = storedMessages.map((m) => ({
           text: m.text,
           isFromBot: m.isFromBot
         }))

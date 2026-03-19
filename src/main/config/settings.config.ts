@@ -267,7 +267,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   // Bash tool security settings
   bashToolEnabled: true,
   bashToolRequireAuthorizedUser: true,
-  bashToolAllowedPlatforms: ['telegram', 'discord', 'whatsapp', 'slack', 'line', 'feishu'],
+  bashToolAllowedPlatforms: ['telegram', 'discord', 'whatsapp', 'slack', 'line', 'feishu', 'local'],
   bashToolAllowedSources: ['message'],
 }
 

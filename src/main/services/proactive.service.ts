@@ -18,6 +18,7 @@ import { discordBotService } from '../apps/discord/bot.service'
 import { slackBotService } from '../apps/slack/bot.service'
 import { whatsappBotService } from '../apps/whatsapp/bot.service'
 import { lineBotService } from '../apps/line/bot.service'
+import { localChatService } from '../apps/local'
 import type { AgentResponse } from '../types'
 
 /**
@@ -902,6 +903,12 @@ class ProactiveService {
           }
           console.error('[Proactive] Failed to send to Line:', result.error)
           return null
+        }
+
+        case 'local': {
+          await localChatService.sendBotMessage(message)
+          console.log('[Proactive] Message sent to Local chat successfully')
+          return platform
         }
 
         default:

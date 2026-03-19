@@ -11,6 +11,7 @@
     }
   },
   "nav": {
+    "local": "ローカルチャット",
     "telegram": "Telegram",
     "discord": "Discord",
     "whatsapp": "WhatsApp",
@@ -494,8 +495,15 @@
       "whatsapp": "WhatsApp に接続してチャットを始めましょう。",
       "slack": "Slack でボットにメッセージを送ってチャットを始めましょう。",
       "line": "Line ボットを接続してチャットを始めましょう。",
-      "feishu": "ボットを接続して Feishu でチャットを始めましょう。"
+      "feishu": "ボットを接続して Feishu でチャットを始めましょう。",
+      "local": "デスクトップアプリ内で memU bot と直接会話します。"
     }
+  },
+  "localChat": {
+    "helper": "ローカルチャットは履歴を保存し、既存の記憶パイプラインにも流れます。",
+    "enterHint": "Enter で送信、Shift + Enter で改行。",
+    "clearHistory": "ローカルチャットをクリア",
+    "cleared": "ローカルチャットをクリアしました"
   },
   "status": {
     "online": "オンライン",
