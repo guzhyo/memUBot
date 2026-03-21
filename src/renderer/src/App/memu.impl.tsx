@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Sidebar, Header } from '../components/Layout'
+import { LocalChatView } from '../components/LocalChat/LocalChatView'
 import { TelegramView } from '../components/Telegram'
 import { DiscordView } from '../components/Discord'
 import { WhatsAppView } from '../components/WhatsApp'
@@ -17,19 +18,19 @@ import { AgentActivityPanel } from '../components/AgentActivity'
 import { useThemeStore, applyTheme } from '../stores/themeStore'
 import { appIcon } from '../assets'
 
-type NavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'settings'
+type NavItem = 'local' | 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'settings'
 type AppNavItem = Exclude<NavItem, 'settings'>
 
 const LAST_APP_TAB_KEY = 'memu-last-app-tab'
 
-// Get saved tab or default to telegram
+// Get saved tab or default to local chat
 function getSavedAppTab(): AppNavItem {
   const saved = localStorage.getItem(LAST_APP_TAB_KEY)
-  const validTabs: AppNavItem[] = ['telegram', 'discord', 'whatsapp', 'slack', 'line', 'feishu']
+  const validTabs: AppNavItem[] = ['local', 'telegram', 'discord', 'whatsapp', 'slack', 'line', 'feishu']
   if (saved && validTabs.includes(saved as AppNavItem)) {
     return saved as AppNavItem
   }
-  return 'telegram'
+  return 'local'
 }
 
 interface StartupStatus {
@@ -95,6 +96,15 @@ export function MemuApp(): JSX.Element {
 
   const getHeaderInfo = () => {
     switch (activeNav) {
+      case 'local':
+        return {
+          title: t('nav.local'),
+          subtitle: t('header.aiAssistant'),
+          showTelegramStatus: false,
+          showDiscordStatus: false,
+          showSlackStatus: false,
+          showFeishuStatus: false
+        }
       case 'telegram':
         return {
           title: 'Telegram',
@@ -226,6 +236,7 @@ export function MemuApp(): JSX.Element {
         />
 
         <main className="flex-1 overflow-hidden flex">
+          {activeNav === 'local' && <LocalChatView />}
           {activeNav === 'telegram' && <TelegramView />}
           {activeNav === 'discord' && <DiscordView />}
           {activeNav === 'whatsapp' && <WhatsAppView />}

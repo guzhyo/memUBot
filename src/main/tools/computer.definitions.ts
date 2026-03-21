@@ -65,6 +65,7 @@ export const bashTool: Anthropic.Tool = {
   description: `Execute a bash command on the system. Use this for running shell commands, installing packages, managing files via command line, etc.
   
 Important notes:
+- This is a high-risk tool and may be restricted by security settings
 - Commands run in the user's default shell
 - Working directory persists between calls
 - Long-running commands will timeout after 30 seconds

@@ -3,7 +3,7 @@
  */
 
 // Memu navigation items (all platforms)
-export type MemuNavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'settings'
+export type MemuNavItem = 'local' | 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'settings'
 
 // Union type for all possible nav items
 export type NavItem = MemuNavItem

@@ -4,6 +4,7 @@ import * as path from 'path'
 import * as readline from 'readline'
 import { app } from 'electron'
 import { truncateOutput } from './computer.executor'
+import { guardFileBoundary } from '../utils/file-boundary'
 import type {
   ReadFileInput,
   WriteFileInput,
@@ -72,6 +73,8 @@ async function executeGrepFile(input: GrepFileInput): Promise<ToolResult> {
     ? input.path 
     : path.join(app.getPath('home'), input.path)
   
+  await guardFileBoundary(targetPath, 'read')
+
   try {
     const regex = new RegExp(input.pattern, 'i')
     const stats = await fs.promises.stat(targetPath)
@@ -175,6 +178,7 @@ async function searchDirectory(
  * Output includes line numbers for easy reference
  */
 async function executeReadFile(input: ReadFileInput): Promise<ToolResult> {
+  await guardFileBoundary(input.path, 'read')
   const content = await fileService.readFile(input.path)
   const lines = content.split('\n')
   
@@ -208,11 +212,13 @@ async function executeReadFile(input: ReadFileInput): Promise<ToolResult> {
 }
 
 async function executeWriteFile(input: WriteFileInput): Promise<ToolResult> {
+  await guardFileBoundary(input.path, 'write')
   await fileService.writeFile(input.path, input.content)
   return { success: true, data: `File written successfully: ${input.path}` }
 }
 
 async function executeListDirectory(input: ListDirectoryInput): Promise<ToolResult> {
+  await guardFileBoundary(input.path, 'read')
   const files = await fileService.listDirectory(input.path)
   // Truncate if file list is too large
   const output = Array.isArray(files) ? files.join('\n') : String(files)
@@ -220,16 +226,19 @@ async function executeListDirectory(input: ListDirectoryInput): Promise<ToolResu
 }
 
 async function executeDeleteFile(input: DeleteFileInput): Promise<ToolResult> {
+  await guardFileBoundary(input.path, 'delete')
   await fileService.deleteFile(input.path)
   return { success: true, data: `Deleted successfully: ${input.path}` }
 }
 
 async function executeCreateDirectory(input: CreateDirectoryInput): Promise<ToolResult> {
+  await guardFileBoundary(input.path, 'create')
   await fileService.createDirectory(input.path)
   return { success: true, data: `Directory created: ${input.path}` }
 }
 
 async function executeGetFileInfo(input: FileInfoInput): Promise<ToolResult> {
+  await guardFileBoundary(input.path, 'stat')
   const info = await fileService.getFileInfo(input.path)
   return { success: true, data: info }
 }

@@ -157,7 +157,7 @@ export class LineBotService {
 
     // Process with Agent
     if (text && event.replyToken) {
-      await this.processWithAgentAndReply(event.replyToken, sourceType, sourceId, text)
+      await this.processWithAgentAndReply(event.replyToken, sourceType, sourceId, userId, text)
     }
   }
 
@@ -168,6 +168,7 @@ export class LineBotService {
     replyToken: string,
     sourceType: 'user' | 'group' | 'room',
     sourceId: string,
+    userId: string,
     userMessage: string
   ): Promise<void> {
     console.log('[Line] Sending to Agent:', userMessage.substring(0, 50) + '...')
@@ -179,7 +180,10 @@ export class LineBotService {
         return
       }
 
-      const response = await agentService.processMessage(userMessage, 'line')
+      const response = await agentService.processMessage(userMessage, 'line', [], undefined, {
+        source: 'message',
+        userId
+      })
 
       // Check if rejected due to processing lock
       if (!response.success && response.busyWith) {

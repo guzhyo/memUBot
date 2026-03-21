@@ -11,6 +11,7 @@
     }
   },
   "nav": {
+    "local": "Local Chat",
     "telegram": "Telegram",
     "discord": "Discord",
     "whatsapp": "WhatsApp",
@@ -253,7 +254,14 @@
       "viewBoundUsers": "View Bound Users",
       "unbind": "Unbind",
       "unbindConfirm": "Are you sure you want to unbind this user?",
-      "boundAt": "Bound at"
+      "boundAt": "Bound at",
+      "fileBoundary": {
+        "title": "File Access Boundary",
+        "description": "Restrict AI agent file operations to a specific directory",
+        "placeholder": "Leave empty to use home directory",
+        "resetDefault": "Reset to Default",
+        "hint": "Empty = user home directory. The AI agent can only read, write, and delete files within this boundary."
+      }
     },
     "model": {
       "title": "AI Model",
@@ -508,8 +516,15 @@
       "whatsapp": "Connect to WhatsApp to start chatting.",
       "slack": "Message the bot in Slack to start chatting.",
       "line": "Connect your Line bot to start chatting.",
-      "feishu": "Connect your bot and start chatting on Feishu."
+      "feishu": "Connect your bot and start chatting on Feishu.",
+      "local": "Talk to memU bot directly inside the desktop app."
     }
+  },
+  "localChat": {
+    "helper": "Local chat keeps history and feeds the existing memory pipeline.",
+    "enterHint": "Press Enter to send, Shift + Enter for a new line.",
+    "clearHistory": "Clear local chat",
+    "cleared": "Local chat cleared"
   },
   "status": {
     "online": "Online",

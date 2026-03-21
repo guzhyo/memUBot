@@ -37,7 +37,7 @@ interface MessageAttachment {
 // App message type
 interface AppMessage {
   id: string
-  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu'
+  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu' | 'local'
   chatId?: string
   senderId?: string
   senderName: string
@@ -50,7 +50,7 @@ interface AppMessage {
 
 // Bot status type
 interface BotStatus {
-  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu'
+  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu' | 'local'
   isConnected: boolean
   username?: string
   botName?: string
@@ -130,6 +130,11 @@ interface AppSettings {
   showAgentActivity: boolean
   tavilyApiKey: string
   preventSleep: boolean
+  fileAccessBoundaryRoot: string
+  bashToolEnabled: boolean
+  bashToolRequireAuthorizedUser: boolean
+  bashToolAllowedPlatforms: Array<'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'local' | 'none'>
+  bashToolAllowedSources: Array<'message' | 'proactive' | 'system' | 'service'>
 }
 
 // Agent API interface
@@ -137,6 +142,16 @@ interface AgentApi {
   sendMessage: (message: string) => Promise<IpcResponse<string>>
   getHistory: () => Promise<IpcResponse<ConversationMessage[]>>
   clearHistory: () => Promise<IpcResponse>
+}
+
+interface LocalApi {
+  sendMessage: (message: string) => Promise<IpcResponse<AppMessage>>
+  getStatus: () => Promise<IpcResponse<BotStatus>>
+  getMessages: (limit?: number) => Promise<IpcResponse<AppMessage[]>>
+  clearMessages: () => Promise<IpcResponse>
+  onNewMessage: (callback: (message: AppMessage) => void) => () => void
+  onStatusChanged: (callback: (status: BotStatus) => void) => () => void
+  onMessagesRefresh: (callback: () => void) => () => void
 }
 
 // File API interface
@@ -483,6 +498,7 @@ declare global {
   interface Window {
     electron: ElectronAPI
     agent: AgentApi
+    local: LocalApi
     file: FileApi
     telegram: TelegramApi
     discord: DiscordApi

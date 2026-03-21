@@ -1,6 +1,7 @@
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import { app } from 'electron'
+import type { MessagePlatform, ToolExecutionSource } from '../services/agent/types'
 
 const CONFIG_DIR = 'config'
 const SETTINGS_FILE = 'settings.json'
@@ -155,6 +156,15 @@ export interface AppSettings {
 
   // Power settings
   preventSleep: boolean
+
+  // File access boundary (empty string = os.homedir())
+  fileAccessBoundaryRoot: string
+
+  // Bash tool security settings
+  bashToolEnabled: boolean
+  bashToolRequireAuthorizedUser: boolean
+  bashToolAllowedPlatforms: MessagePlatform[]
+  bashToolAllowedSources: ToolExecutionSource[]
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -249,7 +259,16 @@ const DEFAULT_SETTINGS: AppSettings = {
   tavilyApiKey: '',
 
   // Power settings
-  preventSleep: true
+  preventSleep: true,
+
+  // File access boundary
+  fileAccessBoundaryRoot: '',
+
+  // Bash tool security settings
+  bashToolEnabled: true,
+  bashToolRequireAuthorizedUser: true,
+  bashToolAllowedPlatforms: ['telegram', 'discord', 'whatsapp', 'slack', 'line', 'feishu', 'local'],
+  bashToolAllowedSources: ['message'],
 }
 
 /**

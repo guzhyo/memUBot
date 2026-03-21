@@ -11,6 +11,7 @@
     }
   },
   "nav": {
+    "local": "ローカルチャット",
     "telegram": "Telegram",
     "discord": "Discord",
     "whatsapp": "WhatsApp",
@@ -253,7 +254,14 @@
       "viewBoundUsers": "バインド済みユーザーを表示",
       "unbind": "バインド解除",
       "unbindConfirm": "このユーザーのバインドを解除しますか？",
-      "boundAt": "バインド日時"
+      "boundAt": "バインド日時",
+      "fileBoundary": {
+        "title": "ファイルアクセス境界",
+        "description": "AIエージェントのファイル操作を特定のディレクトリに制限",
+        "placeholder": "空欄でホームディレクトリを使用",
+        "resetDefault": "デフォルトにリセット",
+        "hint": "空欄 = ユーザーホームディレクトリ。AIエージェントはこの境界内でのみファイルの読み取り、書き込み、削除が可能です。"
+      }
     },
     "model": {
       "title": "AI モデル",
@@ -487,8 +495,15 @@
       "whatsapp": "WhatsApp に接続してチャットを始めましょう。",
       "slack": "Slack でボットにメッセージを送ってチャットを始めましょう。",
       "line": "Line ボットを接続してチャットを始めましょう。",
-      "feishu": "ボットを接続して Feishu でチャットを始めましょう。"
+      "feishu": "ボットを接続して Feishu でチャットを始めましょう。",
+      "local": "デスクトップアプリ内で memU bot と直接会話します。"
     }
+  },
+  "localChat": {
+    "helper": "ローカルチャットは履歴を保存し、既存の記憶パイプラインにも流れます。",
+    "enterHint": "Enter で送信、Shift + Enter で改行。",
+    "clearHistory": "ローカルチャットをクリア",
+    "cleared": "ローカルチャットをクリアしました"
   },
   "status": {
     "online": "オンライン",

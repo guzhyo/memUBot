@@ -8,6 +8,25 @@ const agentApi = {
   clearHistory: () => ipcRenderer.invoke('agent:clear-history')
 }
 
+const localApi = {
+  sendMessage: (message: string) => ipcRenderer.invoke('local:send-message', message),
+  getStatus: () => ipcRenderer.invoke('local:status'),
+  getMessages: (limit?: number) => ipcRenderer.invoke('local:get-messages', limit),
+  clearMessages: () => ipcRenderer.invoke('local:clear-messages'),
+  onNewMessage: (callback: (message: unknown) => void) => {
+    ipcRenderer.on('local:new-message', (_event, message) => callback(message))
+    return () => ipcRenderer.removeAllListeners('local:new-message')
+  },
+  onStatusChanged: (callback: (status: unknown) => void) => {
+    ipcRenderer.on('local:status-changed', (_event, status) => callback(status))
+    return () => ipcRenderer.removeAllListeners('local:status-changed')
+  },
+  onMessagesRefresh: (callback: () => void) => {
+    ipcRenderer.on('local:messages-refresh', () => callback())
+    return () => ipcRenderer.removeAllListeners('local:messages-refresh')
+  }
+}
+
 // File API
 const fileApi = {
   read: (path: string) => ipcRenderer.invoke('file:read', path),
@@ -262,6 +281,7 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('agent', agentApi)
+    contextBridge.exposeInMainWorld('local', localApi)
     contextBridge.exposeInMainWorld('file', fileApi)
     contextBridge.exposeInMainWorld('telegram', telegramApi)
     contextBridge.exposeInMainWorld('discord', discordApi)
@@ -284,6 +304,8 @@ if (process.contextIsolated) {
   window.electron = electronAPI
   // @ts-ignore (define in dts)
   window.agent = agentApi
+  // @ts-ignore (define in dts)
+  window.local = localApi
   // @ts-ignore (define in dts)
   window.file = fileApi
   // @ts-ignore (define in dts)

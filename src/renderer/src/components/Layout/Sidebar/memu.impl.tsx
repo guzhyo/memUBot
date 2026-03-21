@@ -2,7 +2,7 @@
  * Sidebar - Memu Implementation
  * Shows all messaging platforms (Telegram, Discord, Slack, Feishu)
  */
-import { Settings, Sun, Moon, Monitor } from 'lucide-react'
+import { Settings, Sun, Moon, Monitor, MessageSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useThemeStore, type ThemeMode } from '../../../stores/themeStore'
 import { appIcon } from '../../../assets'
@@ -41,6 +41,19 @@ export function MemuSidebar({ activeNav, onNavChange }: MemuSidebarProps): JSX.E
 
       {/* Main Navigation */}
       <nav className="flex-1 flex flex-col items-center pt-4 gap-2">
+        {/* Local Chat */}
+        <button
+          onClick={() => onNavChange('local')}
+          title={t('nav.local')}
+          className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
+            activeNav === 'local'
+              ? 'bg-gradient-to-br from-[#0f766e] to-[#14b8a6] text-white shadow-lg shadow-[#14b8a6]/25'
+              : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[#0f766e] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
+          }`}
+        >
+          <MessageSquare className="w-[18px] h-[18px]" />
+        </button>
+
         {/* Telegram */}
         <button
           onClick={() => onNavChange('telegram')}

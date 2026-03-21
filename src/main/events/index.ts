@@ -52,6 +52,9 @@ export type AppEventType =
   | 'feishu:new-message'
   | 'feishu:status-changed'
   | 'feishu:messages-refresh'
+  | 'local:new-message'
+  | 'local:status-changed'
+  | 'local:messages-refresh'
   | 'llm:status-changed'
   | 'llm:activity-changed'
   | 'service:status-changed'
@@ -244,6 +247,31 @@ class AppEventEmitter extends EventEmitter {
   }
 
   /**
+   * Emit Local new message event
+   */
+  emitLocalNewMessage(message: AppMessage): void {
+    console.log('[Events] Emitting Local new message:', message.id)
+    this.emit('local:new-message', message)
+    this.sendToRenderer('local:new-message', message)
+  }
+
+  /**
+   * Emit Local status changed event
+   */
+  emitLocalStatusChanged(status: {
+    platform: string
+    isConnected: boolean
+    username?: string
+    botName?: string
+    avatarUrl?: string
+    error?: string
+  }): void {
+    console.log('[Events] Emitting Local status changed:', status)
+    this.emit('local:status-changed', status)
+    this.sendToRenderer('local:status-changed', status)
+  }
+
+  /**
    * Emit service status changed event
    */
   emitServiceStatusChanged(serviceId: string, status: ServiceStatusType): void {
@@ -265,7 +293,7 @@ class AppEventEmitter extends EventEmitter {
    * Emit messages refresh event for a platform
    * Used after deleting chat history to refresh UI
    */
-  emitMessagesRefresh(platform: 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu'): void {
+  emitMessagesRefresh(platform: 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'local'): void {
     const eventName = `${platform}:messages-refresh` as AppEventType
     console.log(`[Events] Emitting messages refresh for ${platform}`)
     this.emit(eventName, {})

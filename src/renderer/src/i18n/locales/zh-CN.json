@@ -11,6 +11,7 @@
     }
   },
   "nav": {
+    "local": "本地聊天",
     "telegram": "Telegram",
     "discord": "Discord",
     "whatsapp": "WhatsApp",
@@ -253,7 +254,14 @@
       "viewBoundUsers": "查看已绑定用户",
       "unbind": "解绑",
       "unbindConfirm": "确定要解绑此用户吗？",
-      "boundAt": "绑定时间"
+      "boundAt": "绑定时间",
+      "fileBoundary": {
+        "title": "文件访问边界",
+        "description": "限制 AI 助手的文件操作范围",
+        "placeholder": "留空则使用用户主目录",
+        "resetDefault": "重置为默认",
+        "hint": "留空 = 用户主目录。AI 助手只能在此边界内读取、写入和删除文件。"
+      }
     },
     "model": {
       "title": "AI 模型",
@@ -506,8 +514,15 @@
       "whatsapp": "连接 WhatsApp 开始聊天。",
       "slack": "在 Slack 中给机器人发消息开始聊天。",
       "line": "连接 Line 机器人开始聊天。",
-      "feishu": "连接机器人，在飞书上开始聊天。"
+      "feishu": "连接机器人，在飞书上开始聊天。",
+      "local": "直接在桌面端和 memU bot 对话。"
     }
+  },
+  "localChat": {
+    "helper": "本地聊天会保存历史，并接入现有记忆链路。",
+    "enterHint": "按 Enter 发送，Shift + Enter 换行。",
+    "clearHistory": "清空本地聊天",
+    "cleared": "本地聊天已清空"
   },
   "status": {
     "online": "在线",

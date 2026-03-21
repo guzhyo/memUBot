@@ -11,6 +11,7 @@ import { telegramStorage } from '../apps/telegram/storage'
 import { discordStorage } from '../apps/discord/storage'
 import { slackStorage } from '../apps/slack/storage'
 import { feishuStorage } from '../apps/feishu/storage'
+import { localStorage } from '../apps/local/storage'
 import type { ConversationMessage, AgentResponse } from '../types'
 import * as fs from 'fs/promises'
 
@@ -93,6 +94,7 @@ import {
   createLLMTopicClassifier,
   type TopicScorer
 } from './agent/context/layered/temporary-topic'
+import { getBashToolAccessDecision } from './bash-tool-access'
 import { getToolsForPlatform } from './agent/tools'
 import { executeTool } from './agent/tool-executor'
 import { getSystemPromptForPlatform } from './agent/prompt-builder'
@@ -106,6 +108,8 @@ export type {
   EvaluationData,
   LLMStatus,
   LLMStatusInfo,
+  ToolExecutionContext,
+  ToolExecutionSource,
   AgentActivityType,
   AgentActivityItem
 } from './agent/types'
@@ -117,6 +121,7 @@ import type {
   EvaluationContext,
   EvaluationData,
   EvaluationDecision,
+  ToolExecutionContext,
   AgentActivityItem
 } from './agent/types'
 
@@ -136,6 +141,10 @@ export class AgentService {
   private abortController: AbortController | null = null
   private isAborted = false
   private currentPlatform: MessagePlatform = 'none'
+  private currentToolExecutionContext: ToolExecutionContext = {
+    platform: 'none',
+    source: 'system'
+  }
   private contextLoadedForPlatform: MessagePlatform | null = null // Track which platform's context is loaded
   private contextLoadedForChatId: string | null = null // Track which chatId's context is loaded (for per-chat isolation)
   private recentReplyPlatform: MessagePlatform = 'none' // Track which platform the user most recently sent a message from (persisted to disk)
@@ -841,21 +850,16 @@ export class AgentService {
       const storageLoadLimit = this.getStorageLoadLimit(settings)
       let messages: Array<{ text?: string; isFromBot: boolean }> = []
 
-      if (platform === 'telegram') {
-        const storedMessages = await telegramStorage.getMessages(storageLoadLimit)
-        messages = storedMessages.map(m => ({
-          text: m.text,
-          isFromBot: m.isFromBot
-        }))
-      } else if (platform === 'discord') {
-        const storedMessages = await discordStorage.getMessages(storageLoadLimit)
-        messages = storedMessages.map(m => ({
-          text: m.text,
-          isFromBot: m.isFromBot
-        }))
-      } else if (platform === 'slack') {
-        const storedMessages = await slackStorage.getMessages(storageLoadLimit)
-        messages = storedMessages.map(m => ({
+      if (platform === 'telegram' || platform === 'discord' || platform === 'slack' || platform === 'local') {
+        const storageReaders = {
+          telegram: () => telegramStorage.getMessages(storageLoadLimit),
+          discord: () => discordStorage.getMessages(storageLoadLimit),
+          slack: () => slackStorage.getMessages(storageLoadLimit),
+          local: () => localStorage.getMessages(storageLoadLimit, chatId || 'default')
+        } as const
+
+        const storedMessages = await storageReaders[platform]()
+        messages = storedMessages.map((m) => ({
           text: m.text,
           isFromBot: m.isFromBot
         }))
@@ -1018,7 +1022,8 @@ export class AgentService {
     userMessage: string,
     platform: MessagePlatform = 'none',
     imageUrls: string[] = [],
-    chatId?: string
+    chatId?: string,
+    toolExecutionContext?: Partial<ToolExecutionContext>
   ): Promise<AgentResponse> {
     // Check if agent is currently processing (same or different platform)
     const lockCheck = this.canProcess(platform)
@@ -1046,6 +1051,12 @@ export class AgentService {
     this.isAborted = false
     this.abortController = new AbortController()
     this.currentPlatform = platform
+    this.currentToolExecutionContext = {
+      platform,
+      source: toolExecutionContext?.source ?? (platform === 'none' ? 'system' : 'message'),
+      userId: toolExecutionContext?.userId,
+      isAuthorizedUser: toolExecutionContext?.isAuthorizedUser
+    }
     
     // Clear activity log for new processing session
     this.clearActivityLog()
@@ -1187,6 +1198,10 @@ export class AgentService {
       }
     } finally {
       this.abortController = null
+      this.currentToolExecutionContext = {
+        platform: 'none',
+        source: 'system'
+      }
       // Release the processing lock
       console.log(`[Agent] Lock released by ${this.processingLock}`)
       this.processingLock = null
@@ -1206,8 +1221,12 @@ export class AgentService {
       visualModeEnabled: settings.experimentalVisualMode,
       computerUseEnabled: settings.experimentalComputerUse
     })
+    const bashAccess = await getBashToolAccessDecision(this.currentToolExecutionContext, settings)
+    const effectiveTools = bashAccess.allowed
+      ? tools
+      : tools.filter((tool) => tool.name !== 'bash')
     // #region agent log
-    fetch('http://localhost:7892/ingest/443430ae-db47-457c-ba67-1dd0ac8fcd15',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'eafdcd'},body:JSON.stringify({sessionId:'eafdcd',location:'agent.service.ts:runAgentLoop',message:'tools loaded',data:{totalTools:tools.length,mcpTools:tools.filter(t=>t.name.startsWith('mcp_')).map(t=>({name:t.name,schemaKeys:Object.keys(t.input_schema||{})})),provider,model},timestamp:Date.now(),hypothesisId:'A,B,C'})}).catch(()=>{});
+    fetch('http://localhost:7892/ingest/443430ae-db47-457c-ba67-1dd0ac8fcd15',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'eafdcd'},body:JSON.stringify({sessionId:'eafdcd',location:'agent.service.ts:runAgentLoop',message:'tools loaded',data:{totalTools:effectiveTools.length,mcpTools:effectiveTools.filter(t=>t.name.startsWith('mcp_')).map(t=>({name:t.name,schemaKeys:Object.keys(t.input_schema||{})})),provider,model},timestamp:Date.now(),hypothesisId:'A,B,C'})}).catch(()=>{});
     // #endregion
 
     // Enforce message count limit once before the loop starts
@@ -1221,7 +1240,7 @@ export class AgentService {
     console.log(`[Agent] Using tools for platform: ${this.currentPlatform}`)
     console.log(`[Agent] Visual mode: ${settings.experimentalVisualMode ? 'enabled' : 'disabled'}`)
     console.log(`[Agent] Computer use: ${settings.experimentalComputerUse ? 'enabled' : 'disabled'}`)
-    console.log(`[Agent] Available tools: ${tools.map(t => t.name).join(', ')}`)
+    console.log(`[Agent] Available tools: ${effectiveTools.map(t => t.name).join(', ')}`)
 
     let iterations = 0
     const maxIterations = 50 // Prevent infinite loops
@@ -1246,7 +1265,7 @@ export class AgentService {
       // Estimate tokens before API call for debugging
       const estimatedMsgTokens = this.conversationHistory.reduce((sum, msg) => sum + estimateTokens(msg), 0)
       const estimatedSystemTokens = Math.ceil(systemPrompt.length / 3)
-      const estimatedToolsTokens = Math.ceil(JSON.stringify(tools).length / 3)
+      const estimatedToolsTokens = Math.ceil(JSON.stringify(effectiveTools).length / 3)
       const estimatedTotalTokens = estimatedMsgTokens + estimatedSystemTokens + estimatedToolsTokens
       console.log(`[Agent] Estimated tokens - messages: ${estimatedMsgTokens}, system: ${estimatedSystemTokens}, tools: ${estimatedToolsTokens}, total: ${estimatedTotalTokens}`)
       
@@ -1278,7 +1297,7 @@ export class AgentService {
             model,
             max_tokens: maxTokens,
             system: systemPrompt,
-            tools,
+            tools: effectiveTools,
             messages: this.conversationHistory,
             // Enable context editing to automatically clear old tool results when approaching token limit
             betas: ['context-management-2025-06-27'],
@@ -1315,7 +1334,7 @@ export class AgentService {
             maxTokens,
             0.7,
             systemPrompt,
-            tools,
+            effectiveTools,
             this.conversationHistory
           );
         } else if (provider === 'gemini') {
@@ -1330,7 +1349,7 @@ export class AgentService {
             maxTokens,
             0.7,
             systemPrompt,
-            tools,
+            effectiveTools,
             this.conversationHistory,
             geminiToolIdMap
           );
@@ -1348,7 +1367,7 @@ export class AgentService {
             model,
             max_tokens: maxTokens,
             system: systemPrompt,
-            tools,
+            tools: effectiveTools,
             messages: this.conversationHistory
           })
         }
@@ -1579,7 +1598,7 @@ export class AgentService {
     name: string,
     input: unknown
   ): Promise<{ success: boolean; data?: unknown; error?: string }> {
-    return await executeTool(name, input, this.currentPlatform)
+    return await executeTool(name, input, this.currentPlatform, this.currentToolExecutionContext)
   }
 
   /**
