@@ -502,7 +502,7 @@ export class TelegramBotService {
     appEvents.emitNewMessage(appMessage)
 
     // Publish incoming message event to infraService
-    infraService.publish('message:incoming', {
+    const traceId = infraService.publish('message:incoming', {
       platform: 'telegram',
       timestamp: msg.date,
       message: { role: 'user', content: textContent || '' },
@@ -516,7 +516,7 @@ export class TelegramBotService {
 
     // Process with Agent and reply if there's content (text, images, or files)
     if ((textContent || imageUrls.length > 0 || filePaths.length > 0) && this.bot) {
-      await this.processWithAgentAndReply(msg.chat.id, String(msg.from?.id || ''), textContent, imageUrls)
+      await this.processWithAgentAndReply(msg.chat.id, String(msg.from?.id || ''), textContent, imageUrls, traceId)
     }
   }
 
@@ -731,7 +731,8 @@ export class TelegramBotService {
     chatId: number,
     userId: string,
     userMessage: string,
-    imageUrls: string[] = []
+    imageUrls: string[] = [],
+    traceId?: string
   ): Promise<void> {
     console.log('[Telegram] Sending to Agent:', userMessage, imageUrls.length > 0 ? `with ${imageUrls.length} images` : '')
 
@@ -746,7 +747,7 @@ export class TelegramBotService {
       }
 
       // Get response from Agent with Telegram-specific tools and images
-      const response = await agentService.processMessage(userMessage, 'telegram', imageUrls, undefined, {
+      const response = await agentService.processMessage(userMessage, 'telegram', imageUrls, undefined, traceId, {
         source: 'message',
         userId
       })

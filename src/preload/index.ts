@@ -72,6 +72,10 @@ const settingsApi = {
   openDevTools: () => ipcRenderer.invoke('settings:open-devtools'),
   getLogs: () => ipcRenderer.invoke('settings:get-logs'),
   clearLogs: () => ipcRenderer.invoke('settings:clear-logs'),
+  getAuditLogs: (date?: string) => ipcRenderer.invoke('settings:get-audit-logs', date),
+  exportLogs: (date?: string) => ipcRenderer.invoke('settings:export-logs', date),
+  getTraces: (date?: string) => ipcRenderer.invoke('settings:get-traces', date),
+  getMetricsSummary: () => ipcRenderer.invoke('settings:get-metrics-summary'),
   testConnection: (provider: string, config: { apiKey: string; baseUrl?: string; model: string }) =>
     ipcRenderer.invoke('settings:test-connection', provider, config)
 }

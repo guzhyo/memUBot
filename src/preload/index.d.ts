@@ -268,6 +268,10 @@ interface SettingsApi {
   openDevTools: () => Promise<IpcResponse>
   getLogs: () => Promise<IpcResponse<LogsData>>
   clearLogs: () => Promise<IpcResponse>
+  getAuditLogs: (date?: string) => Promise<IpcResponse<AuditLogsData>>
+  exportLogs: (date?: string) => Promise<IpcResponse<string>>
+  getTraces: (date?: string) => Promise<IpcResponse>
+  getMetricsSummary: () => Promise<IpcResponse>
   testConnection: (provider: string, config: { apiKey: string; baseUrl?: string; model: string }) => Promise<IpcResponse>
 }
 
@@ -280,6 +284,21 @@ interface LogEntry {
 interface LogsData {
   logs: LogEntry[]
   isProduction: boolean
+}
+
+interface AuditLogEntry {
+  timestamp: string
+  level: 'debug' | 'info' | 'warn' | 'error'
+  event: string
+  traceId?: string
+  durationMs?: number
+  data?: Record<string, unknown>
+  error?: string
+}
+
+interface AuditLogsData {
+  entries: AuditLogEntry[]
+  availableDates: string[]
 }
 
 // Storage info types

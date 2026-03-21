@@ -93,6 +93,7 @@
       "data": "データ",
       "power": "電源",
       "experimental": "実験的機能",
+      "observability": "オブザーバビリティ",
       "about": "バージョン情報"
     },
     "account": {
@@ -385,6 +386,58 @@
       "schedule": "スケジュール",
       "notifyVia": "通知先",
       "created": "作成日時"
+    },
+    "observability": {
+      "title": "オブザーバビリティ",
+      "description": "ログ、分散トレース、ランタイムメトリクスを監視",
+      "agentActivity": "エージェントアクティビティパネル",
+      "agentActivityDesc": "メインウィンドウにリアルタイムのエージェント処理状況とツール呼び出しを表示",
+      "tabs": {
+        "console": "コンソール",
+        "traces": "トレース",
+        "metrics": "メトリクス",
+        "audit": "監査ログ"
+      },
+      "actions": {
+        "refresh": "更新",
+        "clear": "クリア",
+        "export": "エクスポート"
+      },
+      "console": {
+        "empty": "コンソールログがありません",
+        "emptyHint": "アプリがメッセージを処理するとログが表示されます"
+      },
+      "traces": {
+        "empty": "トレースがありません",
+        "emptyHint": "メッセージ処理後にトレースが表示されます",
+        "totalTokens": "合計：{{count}} トークン",
+        "tokenBreakdown": "入力：{{input}} / 出力：{{output}}"
+      },
+      "metrics": {
+        "empty": "メトリクスがありません",
+        "emptyHint": "メッセージ処理中に60秒ごとに集計されます",
+        "messages": "メッセージ",
+        "successRate": "{{rate}}% 成功",
+        "avgLatency": "平均レイテンシ",
+        "p95": "p95：{{value}}ms",
+        "llmCalls": "LLM 呼び出し",
+        "tokens": "{{count}} トークン",
+        "llmPerformance": "LLM パフォーマンス",
+        "inputTokens": "入力トークン",
+        "outputTokens": "出力トークン",
+        "avgDuration": "平均所要時間",
+        "p95Duration": "p95 所要時間",
+        "errors": "エラー",
+        "platforms": "プラットフォーム",
+        "received": "{{count}} 受信",
+        "processed": "{{count}} 処理済み",
+        "errorCount": "{{count}} エラー",
+        "toolUsage": "ツール使用状況"
+      },
+      "audit": {
+        "empty": "監査ログがありません",
+        "emptyHint": "警告とエラーがここに記録されます"
+      }
     },
     "data": {
       "title": "データ",

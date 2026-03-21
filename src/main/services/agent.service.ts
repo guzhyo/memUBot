@@ -14,6 +14,7 @@ import { feishuStorage } from '../apps/feishu/storage'
 import { localStorage } from '../apps/local/storage'
 import type { ConversationMessage, AgentResponse } from '../types'
 import * as fs from 'fs/promises'
+import { infraService } from './infra.service'
 
 // Max base64 size for Anthropic API is 5MB. Raw file ~3.75MB → base64 ~5MB.
 // We use 3.5MB as the raw threshold to leave margin.
@@ -31,7 +32,7 @@ function compressImageForLLM(
   const img = nativeImage.createFromBuffer(imageData)
   if (img.isEmpty()) {
     // nativeImage couldn't parse it, return original
-    console.warn(`[Agent] nativeImage could not parse: ${filename}, returning original`)
+    loggerService.warn('agent.image.parse.failed', { filename })
     return { buffer: imageData, mediaType: 'image/jpeg' }
   }
 
@@ -98,6 +99,8 @@ import { getBashToolAccessDecision } from './bash-tool-access'
 import { getToolsForPlatform } from './agent/tools'
 import { executeTool } from './agent/tool-executor'
 import { getSystemPromptForPlatform } from './agent/prompt-builder'
+import { traceService } from './trace.service'
+import { loggerService } from './logger.service'
 
 // Re-export types from module for backwards compatibility
 export type {
@@ -136,11 +139,13 @@ interface TemporaryTopicRuntimeState {
  * Supports Computer Use for full computer control
  */
 export class AgentService {
+  private logger = loggerService.withContext('AgentService')
   private conversationHistory: Anthropic.MessageParam[] = []
   private currentStatus: LLMStatusInfo = { status: 'idle' }
   private abortController: AbortController | null = null
   private isAborted = false
   private currentPlatform: MessagePlatform = 'none'
+  private currentTraceId: string | undefined = undefined
   private currentToolExecutionContext: ToolExecutionContext = {
     platform: 'none',
     source: 'system'
@@ -357,7 +362,7 @@ export class AgentService {
       console.log(`[Agent] Sent intent summary to user via ${toolName} (${summaryText.length} chars)`)
     } catch (err) {
       // Non-critical — don't break the agent loop if sending fails
-      console.warn('[Agent] Failed to send intent summary to user:', err)
+      loggerService.warn('agent.intent.send.failed', { error: String(err) })
     }
   }
 
@@ -1004,7 +1009,7 @@ export class AgentService {
         console.log(`[Agent] Loaded ${this.conversationHistory.length} context messages (~${totalTokens} tokens)`)
       }
     } catch (error) {
-      console.error('[Agent] Error loading context:', error)
+      loggerService.error('agent.context.load.failed', { error: String(error) })
     }
 
     this.contextLoadedForPlatform = platform
@@ -1023,6 +1028,7 @@ export class AgentService {
     platform: MessagePlatform = 'none',
     imageUrls: string[] = [],
     chatId?: string,
+    traceId?: string,
     toolExecutionContext?: Partial<ToolExecutionContext>
   ): Promise<AgentResponse> {
     // Check if agent is currently processing (same or different platform)
@@ -1051,6 +1057,7 @@ export class AgentService {
     this.isAborted = false
     this.abortController = new AbortController()
     this.currentPlatform = platform
+    this.currentTraceId = traceId
     this.currentToolExecutionContext = {
       platform,
       source: toolExecutionContext?.source ?? (platform === 'none' ? 'system' : 'message'),
@@ -1130,7 +1137,7 @@ export class AgentService {
                 localImagePaths.push(imageUrl)
                 console.log(`[Agent] Added image to context: ${path.basename(imageUrl)} (${(imageData.length / (1024 * 1024)).toFixed(2)}MB)`)
               } catch (err) {
-                console.error(`[Agent] Failed to read local image: ${imageUrl}`, err)
+                loggerService.error('agent.image.read.failed', { imageUrl, error: String(err) })
               }
             }
           }
@@ -1174,6 +1181,19 @@ export class AgentService {
 
       // Set status to complete
       this.setStatus('complete')
+
+      // Publish message:processed to close the trace
+      if (traceId) {
+        infraService.publish('message:processed', {
+          platform,
+          timestamp: Math.floor(Date.now() / 1000),
+          originalMessage: { role: 'user', content: userMessage },
+          response: response.message ?? '',
+          success: response.success,
+          traceId
+        })
+      }
+
       return response
     } catch (error) {
       // #region agent log
@@ -1192,6 +1212,19 @@ export class AgentService {
       // Set status to complete even on error (it finished, just with an error)
       this.setStatus('complete')
       console.error('[Agent] Error:', error)
+
+      // Publish message:processed to close the trace (failure case)
+      if (traceId) {
+        infraService.publish('message:processed', {
+          platform,
+          timestamp: Math.floor(Date.now() / 1000),
+          originalMessage: { role: 'user', content: userMessage },
+          response: '',
+          success: false,
+          traceId
+        })
+      }
+
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error)
@@ -1288,7 +1321,8 @@ export class AgentService {
       // Only use beta API with context management for official Claude provider
       // Custom providers (minimax, custom) may not support beta features
       let response: Anthropic.Message
-      
+      const llmSpanId = this.currentTraceId ? traceService.startSpan(this.currentTraceId!, `llm.call.${iterations}`, { provider, model, iteration: iterations }) : ''
+
       try {
         if (provider === 'claude') {
           const anthropicClient = client as Anthropic;
@@ -1402,6 +1436,11 @@ export class AgentService {
           continue // Retry the loop iteration
         }
 
+        // End LLM span as error
+        if (this.currentTraceId && llmSpanId) {
+          traceService.endSpan(this.currentTraceId!, llmSpanId, 'error', {}, String(apiError))
+        }
+
         // Not a token limit error, re-throw
         throw apiError
       }
@@ -1411,12 +1450,21 @@ export class AgentService {
         throw new Error('Aborted')
       }
 
+      // End LLM span with token usage
+      if (this.currentTraceId && llmSpanId) {
+        traceService.endSpan(this.currentTraceId!, llmSpanId, 'ok', {
+          inputTokens: response.usage?.input_tokens ?? 0,
+          outputTokens: response.usage?.output_tokens ?? 0,
+          stopReason: response.stop_reason ?? ''
+        })
+      }
+
       // Log actual token usage from API response and update thinking activity
       if (response.usage) {
         const actualInput = response.usage.input_tokens
         const actualOutput = response.usage.output_tokens
         console.log(`[Agent] Actual tokens - input: ${actualInput}, output: ${actualOutput}`)
-        
+
         // Update the thinking activity with actual token usage
         this.updateActivity(thinkingActivityId, {
           tokenUsage: {
@@ -1518,7 +1566,7 @@ export class AgentService {
 
       console.log('[Agent] Executing tool:', toolUse.name)
       this.setStatus('tool_executing', toolUse.name)
-      
+
       // Add tool_call activity
       this.addActivity({
         type: 'tool_call',
@@ -1526,8 +1574,17 @@ export class AgentService {
         toolInput: toolUse.input as Record<string, unknown>,
         toolUseId: toolUse.id
       })
-      
+
+      const toolSpanId = this.currentTraceId ? traceService.startSpan(this.currentTraceId!, `tool.${toolUse.name}`, { toolName: toolUse.name }) : ''
       const result = await this.executeToolInternal(toolUse.name, toolUse.input)
+      if (this.currentTraceId && toolSpanId) {
+        traceService.endSpan(
+          this.currentTraceId!, toolSpanId,
+          result.success ? 'ok' : 'error',
+          { toolName: toolUse.name },
+          result.success ? undefined : result.error
+        )
+      }
 
       // Add tool_result activity
       const resultSummary = result.success 

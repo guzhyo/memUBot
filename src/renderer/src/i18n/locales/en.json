@@ -93,6 +93,7 @@
       "data": "Data",
       "power": "Power",
       "experimental": "Experimental",
+      "observability": "Observability",
       "about": "About"
     },
     "account": {
@@ -416,6 +417,58 @@
         "hint": "When enabled, Agent can operate your computer like a human",
         "enabled": "Computer Use is enabled",
         "enabledHint": "Agent can now control the mouse, keyboard, and view the screen"
+      }
+    },
+    "observability": {
+      "title": "Observability",
+      "description": "Monitor logs, distributed traces, and runtime metrics",
+      "agentActivity": "Agent Activity Panel",
+      "agentActivityDesc": "Show real-time agent processing status and tool calls in the main window",
+      "tabs": {
+        "console": "Console",
+        "traces": "Traces",
+        "metrics": "Metrics",
+        "audit": "Audit"
+      },
+      "actions": {
+        "refresh": "Refresh",
+        "clear": "Clear",
+        "export": "Export"
+      },
+      "console": {
+        "empty": "No console logs yet",
+        "emptyHint": "Logs will appear here as the app processes messages"
+      },
+      "traces": {
+        "empty": "No traces recorded",
+        "emptyHint": "Traces will appear after processing messages",
+        "totalTokens": "Total: {{count}} tokens",
+        "tokenBreakdown": "in: {{input}} / out: {{output}}"
+      },
+      "metrics": {
+        "empty": "No metrics yet",
+        "emptyHint": "Metrics aggregate every 60 seconds during message processing",
+        "messages": "Messages",
+        "successRate": "{{rate}}% success",
+        "avgLatency": "Avg Latency",
+        "p95": "p95: {{value}}ms",
+        "llmCalls": "LLM Calls",
+        "tokens": "{{count}} tokens",
+        "llmPerformance": "LLM Performance",
+        "inputTokens": "Input tokens",
+        "outputTokens": "Output tokens",
+        "avgDuration": "Avg duration",
+        "p95Duration": "p95 duration",
+        "errors": "Errors",
+        "platforms": "Platforms",
+        "received": "{{count}} received",
+        "processed": "{{count}} processed",
+        "errorCount": "{{count}} errors",
+        "toolUsage": "Tool Usage"
+      },
+      "audit": {
+        "empty": "No audit logs",
+        "emptyHint": "Warnings and errors are recorded here for review"
       }
     },
     "data": {
