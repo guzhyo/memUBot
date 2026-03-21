@@ -262,6 +262,7 @@ class SettingsManager {
   private configPath: string
   private settings: AppSettings = { ...DEFAULT_SETTINGS }
   private initialized = false
+  private settingsLoaded = false  // Track if settings were successfully loaded from file
   private migrationPerformed = false
 
   constructor() {
@@ -285,22 +286,38 @@ class SettingsManager {
 
       // Merge with defaults to ensure all fields exist
       this.settings = { ...DEFAULT_SETTINGS, ...saved }
-      
+      this.settingsLoaded = true  // Mark as successfully loaded
+
       // Migration: ensure provider is set (for existing users)
       if (!saved.llmProvider && saved.claudeApiKey) {
         console.log('[Settings] Setting default LLM provider to Claude (existing user)')
         this.settings.llmProvider = 'claude'
         await this.saveToFile()
       }
-      
+
       // Migration: migrate sensitive data from plain text to secure storage
       await this.migrateSensitiveData()
-      
+
       console.log('[Settings] Loaded settings')
-    } catch {
-      // File doesn't exist, use defaults
-      this.settings = { ...DEFAULT_SETTINGS }
-      console.log('[Settings] Using default settings')
+    } catch (error) {
+      // Check error type - only use defaults if file truly doesn't exist
+      const err = error as NodeJS.ErrnoException
+      if (err.code === 'ENOENT') {
+        // File doesn't exist, use defaults (fresh install)
+        this.settings = { ...DEFAULT_SETTINGS }
+        this.settingsLoaded = true  // Treat as successful load with defaults
+        console.log('[Settings] No settings file found, using defaults')
+      } else {
+        // File exists but corrupted (JSON parse error, read error, etc.)
+        // If we already loaded settings before (this.settingsLoaded is true), preserve them
+        // Otherwise use defaults
+        if (!this.settingsLoaded) {
+          this.settings = { ...DEFAULT_SETTINGS }
+          console.error('[Settings] Settings file corrupted, using defaults:', err.message)
+        } else {
+          console.error('[Settings] Settings file error, preserving current settings:', err.message)
+        }
+      }
     }
 
     this.initialized = true

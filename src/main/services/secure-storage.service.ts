@@ -76,10 +76,14 @@ export function parseMcpEnvKey(key: string): { serverName: string; envVar: strin
   return { serverName: parts[0], envVar: parts[1] }
 }
 
+// Load status tracking
+type LoadStatus = 'fresh' | 'loaded' | 'error'
+
 class SecureStorageService {
   private configPath: string
   private cache: Map<string, string> = new Map()
   private initialized = false
+  private loadStatus: LoadStatus = 'fresh'
   private readonly CURRENT_VERSION = 1
   private readonly BACKUP_VERSION = 1
 
@@ -88,17 +92,33 @@ class SecureStorageService {
   }
 
   /**
+   * Get the current load status
+   */
+  getLoadStatus(): LoadStatus {
+    return this.loadStatus
+  }
+
+  /**
    * Initialize the secure storage service
+   * Safe initialization that preserves existing data on failure
    */
   async initialize(): Promise<void> {
     if (this.initialized) return
+
+    const previousCache = this.cache  // Preserve existing data in case of failure
+    const previousStatus = this.loadStatus
 
     try {
       await this.load()
       console.log('[SecureStorage] Initialized successfully')
     } catch (error) {
       console.error('[SecureStorage] Failed to initialize:', error)
-      this.cache = new Map()
+      // Only reset cache if this is a fresh install (no previous data)
+      // If migration fails, preserve previous cache to avoid data loss
+      if (previousStatus === 'fresh' || previousCache.size === 0) {
+        this.cache = new Map()
+      }
+      // Don't throw - allow the service to continue with existing or empty cache
     }
 
     this.initialized = true
@@ -344,6 +364,7 @@ class SecureStorageService {
 
   /**
    * Load from file
+   * Handles various error cases gracefully without losing data
    */
   private async load(): Promise<void> {
     try {
@@ -355,15 +376,25 @@ class SecureStorageService {
         // Handle migration if needed in the future
       }
 
-      this.cache = new Map(Object.entries(data.encrypted || {}))
+      if (!data.encrypted || typeof data.encrypted !== 'object') {
+        throw new Error('Invalid storage format: missing encrypted object')
+      }
+
+      this.cache = new Map(Object.entries(data.encrypted))
+      this.loadStatus = 'loaded'
       console.log(`[SecureStorage] Loaded ${this.cache.size} encrypted values`)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        // File doesn't exist, start fresh
+        // File doesn't exist, this is a fresh install
         this.cache = new Map()
+        this.loadStatus = 'fresh'
         console.log('[SecureStorage] No existing storage file, starting fresh')
       } else {
-        throw error
+        // File exists but corrupted (JSON parse error, invalid format, etc.)
+        // Preserve existing cache data, mark as error state
+        this.loadStatus = 'error'
+        console.error('[SecureStorage] Storage file corrupted, preserving existing data:', error)
+        // Don't throw - preserve existing cache to avoid data loss
       }
     }
   }

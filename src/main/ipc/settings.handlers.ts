@@ -3,6 +3,7 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import { loadSettings, saveSettings, type AppSettings } from '../config/settings.config'
 import { mcpService } from '../services/mcp.service'
+import { secureStorage } from '../services/secure-storage.service'
 import { detectCustomProtocol } from '../services/agent/utils'
 import type { IpcResponse } from '../types'
 
@@ -76,12 +77,33 @@ function getMcpConfigPath(): string {
 
 /**
  * Load user MCP configuration (without builtin servers)
+ * This loads from mcp-config.json and decrypts env vars from secureStorage
  */
 async function loadUserMcpConfig(): Promise<McpServerConfig> {
   try {
     const configPath = getMcpConfigPath()
     const content = await fs.readFile(configPath, 'utf-8')
-    return JSON.parse(content)
+    const config = JSON.parse(content) as McpServerConfig
+
+    // Decrypt env vars from secureStorage
+    for (const [serverName, serverConfig] of Object.entries(config)) {
+      if (serverConfig.env) {
+        const decryptedEnv: Record<string, string> = {}
+        for (const [envKey, envValue] of Object.entries(serverConfig.env)) {
+          const storageKey = secureStorage.createMcpEnvKey(serverName, envKey)
+          const decrypted = secureStorage.get(storageKey)
+          if (decrypted !== null) {
+            decryptedEnv[envKey] = decrypted
+          } else {
+            // Fallback to plaintext if not found in secureStorage
+            decryptedEnv[envKey] = envValue
+          }
+        }
+        serverConfig.env = decryptedEnv
+      }
+    }
+
+    return config
   } catch {
     return {}
   }
@@ -89,16 +111,61 @@ async function loadUserMcpConfig(): Promise<McpServerConfig> {
 
 /**
  * Save MCP configuration (preserves builtin server settings)
+ * This saves to mcp-config.json and encrypts env vars to secureStorage
  */
 async function saveMcpConfig(config: McpServerConfig): Promise<void> {
   const configPath = getMcpConfigPath()
   // Remove builtin flag from saved config (it's determined by code)
   const cleanConfig: McpServerConfig = {}
+
+  // Collect all MCP env keys that should be in secureStorage
+  const allSecureEnvKeys = new Set<string>()
+
   for (const [name, serverConfig] of Object.entries(config)) {
     const { builtin, ...rest } = serverConfig
-    cleanConfig[name] = rest
+
+    // Encrypt env vars and replace with placeholder
+    if (rest.env && Object.keys(rest.env).length > 0) {
+      const envPlaceholders: Record<string, string> = {}
+      for (const [envKey, envValue] of Object.entries(rest.env)) {
+        const storageKey = secureStorage.createMcpEnvKey(name, envKey)
+        // Store actual value in secureStorage
+        secureStorage.set(storageKey, envValue)
+        allSecureEnvKeys.add(storageKey)
+        // Store placeholder in config file
+        envPlaceholders[envKey] = `[SECURE:${storageKey}]`
+      }
+      cleanConfig[name] = { ...rest, env: envPlaceholders }
+    } else {
+      cleanConfig[name] = rest
+    }
   }
+
   await fs.writeFile(configPath, JSON.stringify(cleanConfig, null, 2), 'utf-8')
+}
+
+/**
+ * Clear MCP env keys from secureStorage that are no longer in config
+ */
+async function cleanupSecureMcpEnvKeys(currentConfig: McpServerConfig): Promise<void> {
+  // Build list of current secure env keys
+  const currentKeys = new Set<string>()
+  for (const [name, serverConfig] of Object.entries(currentConfig)) {
+    if (serverConfig.env) {
+      for (const envKey of Object.keys(serverConfig.env)) {
+        currentKeys.add(secureStorage.createMcpEnvKey(name, envKey))
+      }
+    }
+  }
+
+  // Get all MCP env keys from secureStorage
+  const allSecureStorage = secureStorage.getAll()
+  for (const key of Object.keys(allSecureStorage)) {
+    if (key.startsWith('mcp:env:') && !currentKeys.has(key)) {
+      secureStorage.delete(key)
+      console.log(`[Settings] Cleaned up orphaned MCP env key: ${key}`)
+    }
+  }
 }
 
 /**
@@ -196,6 +263,8 @@ export function setupSettingsHandlers(): void {
     async (_event, config: McpServerConfig): Promise<IpcResponse> => {
       try {
         await saveMcpConfig(config)
+        // Clean up orphaned MCP env keys from secureStorage
+        await cleanupSecureMcpEnvKeys(config)
         // Reload MCP service to apply changes
         await mcpService.reload()
         return { success: true }

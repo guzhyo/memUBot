@@ -60,6 +60,28 @@ const settingsApi = {
 // Security API
 type Platform = 'telegram' | 'discord' | 'slack' | 'feishu' | 'line' | 'whatsapp'
 
+// Secure storage stats type
+interface SecureStorageStats {
+  totalKeys: number
+  sensitiveKeys: number
+  mcpEnvKeys: number
+  isAvailable: boolean
+}
+
+// Backup validation result
+interface BackupValidationResult {
+  valid: boolean
+  message: string
+  timestamp?: number
+}
+
+// Backup import result
+interface BackupImportResult {
+  success: boolean
+  message: string
+  imported: number
+}
+
 const securityApi = {
   generateCode: () => ipcRenderer.invoke('security:generate-code'),
   getCodeInfo: () => ipcRenderer.invoke('security:get-code-info'),
@@ -68,7 +90,19 @@ const securityApi = {
     ipcRenderer.invoke('security:remove-bound-user', userId, platform),
   removeBoundUserById: (uniqueId: string, platform: Platform) =>
     ipcRenderer.invoke('security:remove-bound-user-by-id', uniqueId, platform),
-  clearBoundUsers: (platform?: Platform) => ipcRenderer.invoke('security:clear-bound-users', platform)
+  clearBoundUsers: (platform?: Platform) => ipcRenderer.invoke('security:clear-bound-users', platform),
+  // Secure Storage Management
+  getSecureStorageStats: () => ipcRenderer.invoke('security:get-secure-storage-stats'),
+  exportBackup: (password: string) => ipcRenderer.invoke('security:export-backup', password),
+  importBackup: (backupData: string, password: string) =>
+    ipcRenderer.invoke('security:import-backup', backupData, password),
+  validateBackup: (backupData: string) => ipcRenderer.invoke('security:validate-backup', backupData),
+  clearSecureStorage: () => ipcRenderer.invoke('security:clear-secure-storage'),
+  showSaveBackupDialog: () => ipcRenderer.invoke('security:show-save-backup-dialog'),
+  showOpenBackupDialog: () => ipcRenderer.invoke('security:show-open-backup-dialog'),
+  readBackupFile: (filePath: string) => ipcRenderer.invoke('security:read-backup-file', filePath),
+  writeBackupFile: (filePath: string, content: string) =>
+    ipcRenderer.invoke('security:write-backup-file', filePath, content)
 }
 
 // Discord API (single-user mode)

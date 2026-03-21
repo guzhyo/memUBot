@@ -127,7 +127,7 @@ export function SecuritySettings(): JSX.Element {
       if (result.success && result.data) {
         // Show save dialog
         const dialogResult = await window.security.showSaveBackupDialog()
-        if (dialogResult.success && dialogResult.data && !dialogResult.data.canceled) {
+        if (dialogResult.success && dialogResult.data && !dialogResult.data.canceled && dialogResult.data.filePath) {
           await window.security.writeBackupFile(dialogResult.data.filePath, result.data)
           toast.success(t('settings.security.exportSuccess'))
           setShowExportModal(false)
@@ -154,10 +154,9 @@ export function SecuritySettings(): JSX.Element {
     try {
       // Show open dialog
       const dialogResult = await window.security.showOpenBackupDialog()
-      if (dialogResult.success && dialogResult.data && !dialogResult.data.canceled && dialogResult.data.filePaths.length > 0) {
-        const filePath = dialogResult.data.filePaths[0]
-        const readResult = await window.security.readBackupFile(filePath)
-        
+      if (dialogResult.success && dialogResult.data && !dialogResult.data.canceled && dialogResult.data.filePath) {
+        const readResult = await window.security.readBackupFile(dialogResult.data.filePath)
+
         if (readResult.success && readResult.data) {
           // Validate backup first
           const validateResult = await window.security.validateBackup(readResult.data)
