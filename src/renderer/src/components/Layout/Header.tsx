@@ -3,7 +3,7 @@ import { Power, Loader2, Circle, Users, ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from '../Toast'
 import { BoundUsersModal, LLMStatusIndicator } from '../Shared'
-import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon } from '../Icons/AppIcons'
+import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon, QQIcon } from '../Icons/AppIcons'
 
 interface HeaderProps {
   title: string
@@ -12,10 +12,11 @@ interface HeaderProps {
   showDiscordStatus?: boolean
   showSlackStatus?: boolean
   showFeishuStatus?: boolean
+  showQQStatus?: boolean
   onShowActivity?: () => void
 }
 
-type Platform = 'telegram' | 'discord' | 'slack' | 'feishu'
+type Platform = 'telegram' | 'discord' | 'slack' | 'feishu' | 'qq'
 
 // Platform tutorial links
 const platformTutorialLinks: Partial<Record<Platform, string>> = {
@@ -38,7 +39,8 @@ function BotAvatar({
     telegram: { from: '#7DCBF7', to: '#2596D1', border: '#7DCBF7' },
     discord: { from: '#5865F2', to: '#7289DA', border: '#5865F2' },
     slack: { from: '#4A154B', to: '#611F69', border: '#4A154B' },
-    feishu: { from: '#3370FF', to: '#5B8FF9', border: '#3370FF' }
+    feishu: { from: '#3370FF', to: '#5B8FF9', border: '#3370FF' },
+    qq: { from: '#12B7F5', to: '#0E9FD8', border: '#12B7F5' }
   }
   const colors = colorMap[platform]
 
@@ -59,7 +61,8 @@ function BotAvatar({
     telegram: TelegramIcon,
     discord: DiscordIcon,
     slack: SlackIcon,
-    feishu: FeishuIcon
+    feishu: FeishuIcon,
+    qq: QQIcon
   }
   const PlatformIcon = iconMap[platform]
 
@@ -90,12 +93,13 @@ interface BotStatus {
   error?: string
 }
 
-export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus, showSlackStatus, showFeishuStatus, onShowActivity }: HeaderProps): JSX.Element {
+export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus, showSlackStatus, showFeishuStatus, showQQStatus, onShowActivity }: HeaderProps): JSX.Element {
   const { t } = useTranslation()
   const [telegramStatus, setTelegramStatus] = useState<BotStatus | null>(null)
   const [discordStatus, setDiscordStatus] = useState<BotStatus | null>(null)
   const [slackStatus, setSlackStatus] = useState<BotStatus | null>(null)
   const [feishuStatus, setFeishuStatus] = useState<BotStatus | null>(null)
+  const [qqStatus, setQQStatus] = useState<BotStatus | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [showBoundUsers, setShowBoundUsers] = useState(false)
 
@@ -108,6 +112,8 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     ? 'slack'
     : showFeishuStatus
     ? 'feishu'
+    : showQQStatus
+    ? 'qq'
     : null
 
   // Current platform status
@@ -119,6 +125,8 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     ? slackStatus
     : showFeishuStatus
     ? feishuStatus
+    : showQQStatus
+    ? qqStatus
     : null
 
   // Platform colors
@@ -126,7 +134,8 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     telegram: { from: '#7DCBF7', to: '#2596D1', shadow: '#2596D1' },
     discord: { from: '#5865F2', to: '#7289DA', shadow: '#5865F2' },
     slack: { from: '#4A154B', to: '#611F69', shadow: '#4A154B' },
-    feishu: { from: '#3370FF', to: '#5B8FF9', shadow: '#3370FF' }
+    feishu: { from: '#3370FF', to: '#5B8FF9', shadow: '#3370FF' },
+    qq: { from: '#12B7F5', to: '#0E9FD8', shadow: '#12B7F5' }
   }
   const platformColors = platform ? platformColorMap[platform] : platformColorMap.telegram
 
@@ -174,6 +183,17 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     }
   }, [showFeishuStatus])
 
+  // Subscribe to QQ status
+  useEffect(() => {
+    if (showQQStatus) {
+      checkQQStatus()
+      const unsubscribe = window.qq.onStatusChanged((newStatus: BotStatus) => {
+        setQQStatus(newStatus)
+      })
+      return () => unsubscribe()
+    }
+  }, [showQQStatus])
+
   const checkTelegramStatus = async () => {
     try {
       const result = await window.telegram.getStatus()
@@ -218,6 +238,17 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     }
   }
 
+  const checkQQStatus = async () => {
+    try {
+      const result = await window.qq.getStatus()
+      if (result.success && result.data) {
+        setQQStatus(result.data)
+      }
+    } catch (error) {
+      console.error('Failed to get QQ status:', error)
+    }
+  }
+
   const handleConnect = async () => {
     setConnecting(true)
     try {
@@ -257,6 +288,15 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
           toast.success(`Feishu ${t('common.connected').toLowerCase()}`)
         }
         await checkFeishuStatus()
+      } else if (showQQStatus) {
+        const result = await window.qq.connect()
+        if (!result.success) {
+          setQQStatus({ platform: 'qq', isConnected: false, error: result.error })
+          toast.error(result.error || t('errors.connectionFailed'))
+        } else {
+          toast.success(`QQ ${t('common.connected').toLowerCase()}`)
+        }
+        await checkQQStatus()
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : t('errors.connectionFailed')
@@ -283,6 +323,10 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
         await window.feishu.disconnect()
         toast.info(`Feishu ${t('common.disconnected').toLowerCase()}`)
         await checkFeishuStatus()
+      } else if (showQQStatus) {
+        await window.qq.disconnect()
+        toast.info(`QQ ${t('common.disconnected').toLowerCase()}`)
+        await checkQQStatus()
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : t('errors.connectionFailed')
@@ -292,7 +336,7 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
   }
 
   const isConnected = status?.isConnected
-  const showStatus = showTelegramStatus || showDiscordStatus || showSlackStatus || showFeishuStatus
+  const showStatus = showTelegramStatus || showDiscordStatus || showSlackStatus || showFeishuStatus || showQQStatus
 
   // Get display info based on connection status
   const platformName = platform ? t(`nav.${platform}`) : ''

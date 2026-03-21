@@ -7,6 +7,7 @@ import { telegramBotService } from '../../apps/telegram/bot.service'
 import { discordBotService } from '../../apps/discord/bot.service'
 import { slackBotService } from '../../apps/slack/bot.service'
 import { feishuBotService } from '../../apps/feishu/bot.service'
+import { qqBotService } from '../../apps/qq/bot.service'
 import type { IAutoConnectService } from './types'
 
 class MemuAutoConnectService implements IAutoConnectService {
@@ -81,6 +82,23 @@ class MemuAutoConnectService implements IAutoConnectService {
       }
     }
 
+    // Check QQ (needs both app ID and app secret)
+    if (
+      settings.qqAppId && settings.qqAppId.trim() !== '' &&
+      settings.qqAppSecret && settings.qqAppSecret.trim() !== ''
+    ) {
+      if (settings.qqAutoConnect !== false) {
+        console.log('[AutoConnect:Memu] QQ is configured, connecting...')
+        connectPromises.push(
+          this.connectQQ().catch((err) => {
+            console.error('[AutoConnect:Memu] Failed to connect QQ:', err)
+          })
+        )
+      } else {
+        console.log('[AutoConnect:Memu] QQ is configured but auto-connect is disabled')
+      }
+    }
+
     // Wait for all connections to complete (or fail)
     if (connectPromises.length > 0) {
       await Promise.all(connectPromises)
@@ -135,6 +153,18 @@ class MemuAutoConnectService implements IAutoConnectService {
       console.log('[AutoConnect:Memu] Feishu connected successfully')
     } catch (error) {
       throw new Error(`Feishu connection failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  /**
+   * Connect to QQ
+   */
+  private async connectQQ(): Promise<void> {
+    try {
+      await qqBotService.connect()
+      console.log('[AutoConnect:Memu] QQ connected successfully')
+    } catch (error) {
+      throw new Error(`QQ connection failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 }

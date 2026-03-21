@@ -11,8 +11,11 @@ import { telegramStorage } from '../apps/telegram/storage'
 import { discordStorage } from '../apps/discord/storage'
 import { slackStorage } from '../apps/slack/storage'
 import { feishuStorage } from '../apps/feishu/storage'
+import { qqStorage } from '../apps/qq/storage'
+import { localStorage } from '../apps/local/storage'
 import type { ConversationMessage, AgentResponse } from '../types'
 import * as fs from 'fs/promises'
+import { infraService } from './infra.service'
 
 // Max base64 size for Anthropic API is 5MB. Raw file ~3.75MB → base64 ~5MB.
 // We use 3.5MB as the raw threshold to leave margin.
@@ -30,7 +33,7 @@ function compressImageForLLM(
   const img = nativeImage.createFromBuffer(imageData)
   if (img.isEmpty()) {
     // nativeImage couldn't parse it, return original
-    console.warn(`[Agent] nativeImage could not parse: ${filename}, returning original`)
+    loggerService.warn('agent.image.parse.failed', { filename })
     return { buffer: imageData, mediaType: 'image/jpeg' }
   }
 
@@ -93,9 +96,12 @@ import {
   createLLMTopicClassifier,
   type TopicScorer
 } from './agent/context/layered/temporary-topic'
+import { getBashToolAccessDecision } from './bash-tool-access'
 import { getToolsForPlatform } from './agent/tools'
 import { executeTool } from './agent/tool-executor'
 import { getSystemPromptForPlatform } from './agent/prompt-builder'
+import { traceService } from './trace.service'
+import { loggerService } from './logger.service'
 
 // Re-export types from module for backwards compatibility
 export type {
@@ -106,6 +112,8 @@ export type {
   EvaluationData,
   LLMStatus,
   LLMStatusInfo,
+  ToolExecutionContext,
+  ToolExecutionSource,
   AgentActivityType,
   AgentActivityItem
 } from './agent/types'
@@ -117,6 +125,7 @@ import type {
   EvaluationContext,
   EvaluationData,
   EvaluationDecision,
+  ToolExecutionContext,
   AgentActivityItem
 } from './agent/types'
 
@@ -131,11 +140,17 @@ interface TemporaryTopicRuntimeState {
  * Supports Computer Use for full computer control
  */
 export class AgentService {
+  private logger = loggerService.withContext('AgentService')
   private conversationHistory: Anthropic.MessageParam[] = []
   private currentStatus: LLMStatusInfo = { status: 'idle' }
   private abortController: AbortController | null = null
   private isAborted = false
   private currentPlatform: MessagePlatform = 'none'
+  private currentTraceId: string | undefined = undefined
+  private currentToolExecutionContext: ToolExecutionContext = {
+    platform: 'none',
+    source: 'system'
+  }
   private contextLoadedForPlatform: MessagePlatform | null = null // Track which platform's context is loaded
   private contextLoadedForChatId: string | null = null // Track which chatId's context is loaded (for per-chat isolation)
   private recentReplyPlatform: MessagePlatform = 'none' // Track which platform the user most recently sent a message from (persisted to disk)
@@ -348,7 +363,7 @@ export class AgentService {
       console.log(`[Agent] Sent intent summary to user via ${toolName} (${summaryText.length} chars)`)
     } catch (err) {
       // Non-critical — don't break the agent loop if sending fails
-      console.warn('[Agent] Failed to send intent summary to user:', err)
+      loggerService.warn('agent.intent.send.failed', { error: String(err) })
     }
   }
 
@@ -841,21 +856,16 @@ export class AgentService {
       const storageLoadLimit = this.getStorageLoadLimit(settings)
       let messages: Array<{ text?: string; isFromBot: boolean }> = []
 
-      if (platform === 'telegram') {
-        const storedMessages = await telegramStorage.getMessages(storageLoadLimit)
-        messages = storedMessages.map(m => ({
-          text: m.text,
-          isFromBot: m.isFromBot
-        }))
-      } else if (platform === 'discord') {
-        const storedMessages = await discordStorage.getMessages(storageLoadLimit)
-        messages = storedMessages.map(m => ({
-          text: m.text,
-          isFromBot: m.isFromBot
-        }))
-      } else if (platform === 'slack') {
-        const storedMessages = await slackStorage.getMessages(storageLoadLimit)
-        messages = storedMessages.map(m => ({
+      if (platform === 'telegram' || platform === 'discord' || platform === 'slack' || platform === 'local') {
+        const storageReaders = {
+          telegram: () => telegramStorage.getMessages(storageLoadLimit),
+          discord: () => discordStorage.getMessages(storageLoadLimit),
+          slack: () => slackStorage.getMessages(storageLoadLimit),
+          local: () => localStorage.getMessages(storageLoadLimit, chatId || 'default')
+        } as const
+
+        const storedMessages = await storageReaders[platform]()
+        messages = storedMessages.map((m) => ({
           text: m.text,
           isFromBot: m.isFromBot
         }))
@@ -932,6 +942,60 @@ export class AgentService {
             isFromBot: m.isFromBot
           })
         }
+      } else if (platform === 'qq') {
+        const storedMessages = await qqStorage.getMessages(storageLoadLimit, chatId)
+        for (const m of storedMessages) {
+          const hasImages = m.attachments?.some(a => a.contentType?.startsWith('image/'))
+          if (hasImages && !m.isFromBot) {
+            const imageAttachments = m.attachments?.filter(a => a.contentType?.startsWith('image/')) || []
+            const imageContents: Anthropic.ContentBlockParam[] = []
+            const imagePaths: string[] = []
+
+            for (const att of imageAttachments.slice(0, 3)) {
+              if (att.url && !att.url.startsWith('http')) {
+                try {
+                  let imageData: Buffer<ArrayBufferLike> = await fs.readFile(att.url)
+                  let mediaType = detectImageMediaType(imageData)
+                  const rawSizeMB = imageData.length / (1024 * 1024)
+
+                  if (rawSizeMB > MAX_BASE64_RAW_SIZE_MB) {
+                    const compressed = compressImageForLLM(imageData, path.basename(att.url))
+                    imageData = compressed.buffer
+                    mediaType = compressed.mediaType
+                  }
+
+                  imageContents.push({
+                    type: 'image',
+                    source: { type: 'base64', media_type: mediaType, data: imageData.toString('base64') }
+                  })
+                  imagePaths.push(att.url)
+                } catch (err) {
+                  console.log(`[Agent] Could not load historical QQ image: ${att.url}`)
+                }
+              }
+            }
+
+            if (imageContents.length > 0 || imagePaths.length > 0) {
+              const pathInfo = imagePaths.map((p, i) => `[Image ${i + 1} local path: ${p}]`).join('\n')
+              const textParts = [pathInfo]
+              if (m.text) textParts.push(m.text)
+
+              if (imageContents.length > 0) {
+                imageContents.push({ type: 'text', text: textParts.join('\n\n') })
+                messages.push({
+                  text: undefined,
+                  isFromBot: false,
+                  _multimodal: imageContents
+                } as { text?: string; isFromBot: boolean; _multimodal?: Anthropic.ContentBlockParam[] })
+              } else {
+                messages.push({ text: textParts.join('\n\n'), isFromBot: false })
+              }
+              continue
+            }
+          }
+
+          messages.push({ text: m.text, isFromBot: m.isFromBot })
+        }
       }
 
       // Convert to Anthropic message format
@@ -1000,7 +1064,7 @@ export class AgentService {
         console.log(`[Agent] Loaded ${this.conversationHistory.length} context messages (~${totalTokens} tokens)`)
       }
     } catch (error) {
-      console.error('[Agent] Error loading context:', error)
+      loggerService.error('agent.context.load.failed', { error: String(error) })
     }
 
     this.contextLoadedForPlatform = platform
@@ -1018,7 +1082,9 @@ export class AgentService {
     userMessage: string,
     platform: MessagePlatform = 'none',
     imageUrls: string[] = [],
-    chatId?: string
+    chatId?: string,
+    traceId?: string,
+    toolExecutionContext?: Partial<ToolExecutionContext>
   ): Promise<AgentResponse> {
     // Check if agent is currently processing (same or different platform)
     const lockCheck = this.canProcess(platform)
@@ -1046,6 +1112,13 @@ export class AgentService {
     this.isAborted = false
     this.abortController = new AbortController()
     this.currentPlatform = platform
+    this.currentTraceId = traceId
+    this.currentToolExecutionContext = {
+      platform,
+      source: toolExecutionContext?.source ?? (platform === 'none' ? 'system' : 'message'),
+      userId: toolExecutionContext?.userId,
+      isAuthorizedUser: toolExecutionContext?.isAuthorizedUser
+    }
     
     // Clear activity log for new processing session
     this.clearActivityLog()
@@ -1066,10 +1139,11 @@ export class AgentService {
       // Check if the message is already in conversation history (loaded from storage)
       // This happens when storage is updated before calling processMessage
       const lastMessage = this.conversationHistory[this.conversationHistory.length - 1]
-      const isAlreadyInHistory = lastMessage && 
-        lastMessage.role === 'user' && 
-        typeof lastMessage.content === 'string' && 
-        lastMessage.content === userMessage
+      const isAlreadyInHistory = lastMessage &&
+        lastMessage.role === 'user' &&
+        typeof lastMessage.content === 'string' &&
+        lastMessage.content === userMessage &&
+        imageUrls.length === 0
       
       if (isAlreadyInHistory) {
         console.log(`[Agent] Message already in history from storage, skipping duplicate add to conversationHistory`)
@@ -1119,7 +1193,7 @@ export class AgentService {
                 localImagePaths.push(imageUrl)
                 console.log(`[Agent] Added image to context: ${path.basename(imageUrl)} (${(imageData.length / (1024 * 1024)).toFixed(2)}MB)`)
               } catch (err) {
-                console.error(`[Agent] Failed to read local image: ${imageUrl}`, err)
+                loggerService.error('agent.image.read.failed', { imageUrl, error: String(err) })
               }
             }
           }
@@ -1163,6 +1237,19 @@ export class AgentService {
 
       // Set status to complete
       this.setStatus('complete')
+
+      // Publish message:processed to close the trace
+      if (traceId) {
+        infraService.publish('message:processed', {
+          platform,
+          timestamp: Math.floor(Date.now() / 1000),
+          originalMessage: { role: 'user', content: userMessage },
+          response: response.message ?? '',
+          success: response.success,
+          traceId
+        })
+      }
+
       return response
     } catch (error) {
       // #region agent log
@@ -1181,12 +1268,29 @@ export class AgentService {
       // Set status to complete even on error (it finished, just with an error)
       this.setStatus('complete')
       console.error('[Agent] Error:', error)
+
+      // Publish message:processed to close the trace (failure case)
+      if (traceId) {
+        infraService.publish('message:processed', {
+          platform,
+          timestamp: Math.floor(Date.now() / 1000),
+          originalMessage: { role: 'user', content: userMessage },
+          response: '',
+          success: false,
+          traceId
+        })
+      }
+
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error)
       }
     } finally {
       this.abortController = null
+      this.currentToolExecutionContext = {
+        platform: 'none',
+        source: 'system'
+      }
       // Release the processing lock
       console.log(`[Agent] Lock released by ${this.processingLock}`)
       this.processingLock = null
@@ -1206,8 +1310,12 @@ export class AgentService {
       visualModeEnabled: settings.experimentalVisualMode,
       computerUseEnabled: settings.experimentalComputerUse
     })
+    const bashAccess = await getBashToolAccessDecision(this.currentToolExecutionContext, settings)
+    const effectiveTools = bashAccess.allowed
+      ? tools
+      : tools.filter((tool) => tool.name !== 'bash')
     // #region agent log
-    fetch('http://localhost:7892/ingest/443430ae-db47-457c-ba67-1dd0ac8fcd15',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'eafdcd'},body:JSON.stringify({sessionId:'eafdcd',location:'agent.service.ts:runAgentLoop',message:'tools loaded',data:{totalTools:tools.length,mcpTools:tools.filter(t=>t.name.startsWith('mcp_')).map(t=>({name:t.name,schemaKeys:Object.keys(t.input_schema||{})})),provider,model},timestamp:Date.now(),hypothesisId:'A,B,C'})}).catch(()=>{});
+    fetch('http://localhost:7892/ingest/443430ae-db47-457c-ba67-1dd0ac8fcd15',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'eafdcd'},body:JSON.stringify({sessionId:'eafdcd',location:'agent.service.ts:runAgentLoop',message:'tools loaded',data:{totalTools:effectiveTools.length,mcpTools:effectiveTools.filter(t=>t.name.startsWith('mcp_')).map(t=>({name:t.name,schemaKeys:Object.keys(t.input_schema||{})})),provider,model},timestamp:Date.now(),hypothesisId:'A,B,C'})}).catch(()=>{});
     // #endregion
 
     // Enforce message count limit once before the loop starts
@@ -1221,7 +1329,7 @@ export class AgentService {
     console.log(`[Agent] Using tools for platform: ${this.currentPlatform}`)
     console.log(`[Agent] Visual mode: ${settings.experimentalVisualMode ? 'enabled' : 'disabled'}`)
     console.log(`[Agent] Computer use: ${settings.experimentalComputerUse ? 'enabled' : 'disabled'}`)
-    console.log(`[Agent] Available tools: ${tools.map(t => t.name).join(', ')}`)
+    console.log(`[Agent] Available tools: ${effectiveTools.map(t => t.name).join(', ')}`)
 
     let iterations = 0
     const maxIterations = 50 // Prevent infinite loops
@@ -1246,7 +1354,7 @@ export class AgentService {
       // Estimate tokens before API call for debugging
       const estimatedMsgTokens = this.conversationHistory.reduce((sum, msg) => sum + estimateTokens(msg), 0)
       const estimatedSystemTokens = Math.ceil(systemPrompt.length / 3)
-      const estimatedToolsTokens = Math.ceil(JSON.stringify(tools).length / 3)
+      const estimatedToolsTokens = Math.ceil(JSON.stringify(effectiveTools).length / 3)
       const estimatedTotalTokens = estimatedMsgTokens + estimatedSystemTokens + estimatedToolsTokens
       console.log(`[Agent] Estimated tokens - messages: ${estimatedMsgTokens}, system: ${estimatedSystemTokens}, tools: ${estimatedToolsTokens}, total: ${estimatedTotalTokens}`)
       
@@ -1269,7 +1377,8 @@ export class AgentService {
       // Only use beta API with context management for official Claude provider
       // Custom providers (minimax, custom) may not support beta features
       let response: Anthropic.Message
-      
+      const llmSpanId = this.currentTraceId ? traceService.startSpan(this.currentTraceId!, `llm.call.${iterations}`, { provider, model, iteration: iterations }) : ''
+
       try {
         if (provider === 'claude') {
           const anthropicClient = client as Anthropic;
@@ -1278,7 +1387,7 @@ export class AgentService {
             model,
             max_tokens: maxTokens,
             system: systemPrompt,
-            tools,
+            tools: effectiveTools,
             messages: this.conversationHistory,
             // Enable context editing to automatically clear old tool results when approaching token limit
             betas: ['context-management-2025-06-27'],
@@ -1315,7 +1424,7 @@ export class AgentService {
             maxTokens,
             0.7,
             systemPrompt,
-            tools,
+            effectiveTools,
             this.conversationHistory
           );
         } else if (provider === 'gemini') {
@@ -1330,7 +1439,7 @@ export class AgentService {
             maxTokens,
             0.7,
             systemPrompt,
-            tools,
+            effectiveTools,
             this.conversationHistory,
             geminiToolIdMap
           );
@@ -1348,7 +1457,7 @@ export class AgentService {
             model,
             max_tokens: maxTokens,
             system: systemPrompt,
-            tools,
+            tools: effectiveTools,
             messages: this.conversationHistory
           })
         }
@@ -1383,6 +1492,11 @@ export class AgentService {
           continue // Retry the loop iteration
         }
 
+        // End LLM span as error
+        if (this.currentTraceId && llmSpanId) {
+          traceService.endSpan(this.currentTraceId!, llmSpanId, 'error', {}, String(apiError))
+        }
+
         // Not a token limit error, re-throw
         throw apiError
       }
@@ -1392,12 +1506,21 @@ export class AgentService {
         throw new Error('Aborted')
       }
 
+      // End LLM span with token usage
+      if (this.currentTraceId && llmSpanId) {
+        traceService.endSpan(this.currentTraceId!, llmSpanId, 'ok', {
+          inputTokens: response.usage?.input_tokens ?? 0,
+          outputTokens: response.usage?.output_tokens ?? 0,
+          stopReason: response.stop_reason ?? ''
+        })
+      }
+
       // Log actual token usage from API response and update thinking activity
       if (response.usage) {
         const actualInput = response.usage.input_tokens
         const actualOutput = response.usage.output_tokens
         console.log(`[Agent] Actual tokens - input: ${actualInput}, output: ${actualOutput}`)
-        
+
         // Update the thinking activity with actual token usage
         this.updateActivity(thinkingActivityId, {
           tokenUsage: {
@@ -1499,7 +1622,7 @@ export class AgentService {
 
       console.log('[Agent] Executing tool:', toolUse.name)
       this.setStatus('tool_executing', toolUse.name)
-      
+
       // Add tool_call activity
       this.addActivity({
         type: 'tool_call',
@@ -1507,8 +1630,17 @@ export class AgentService {
         toolInput: toolUse.input as Record<string, unknown>,
         toolUseId: toolUse.id
       })
-      
+
+      const toolSpanId = this.currentTraceId ? traceService.startSpan(this.currentTraceId!, `tool.${toolUse.name}`, { toolName: toolUse.name }) : ''
       const result = await this.executeToolInternal(toolUse.name, toolUse.input)
+      if (this.currentTraceId && toolSpanId) {
+        traceService.endSpan(
+          this.currentTraceId!, toolSpanId,
+          result.success ? 'ok' : 'error',
+          { toolName: toolUse.name },
+          result.success ? undefined : result.error
+        )
+      }
 
       // Add tool_result activity
       const resultSummary = result.success 
@@ -1579,7 +1711,7 @@ export class AgentService {
     name: string,
     input: unknown
   ): Promise<{ success: boolean; data?: unknown; error?: string }> {
-    return await executeTool(name, input, this.currentPlatform)
+    return await executeTool(name, input, this.currentPlatform, this.currentToolExecutionContext)
   }
 
   /**

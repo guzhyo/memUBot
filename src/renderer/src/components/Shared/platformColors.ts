@@ -4,6 +4,13 @@ import { ThemeColors } from './MessageBubble'
  * Platform theme colors configuration
  */
 export const platformColors: Record<string, ThemeColors> = {
+  local: {
+    primary: '#0f766e',
+    primaryLight: '#2dd4bf',
+    primaryDark: '#5eead4',
+    secondary: '#64748b',
+    secondaryDark: '#94a3b8'
+  },
   telegram: {
     primary: '#2596D1',
     primaryLight: '#7DCBF7',
@@ -45,5 +52,12 @@ export const platformColors: Record<string, ThemeColors> = {
     primaryDark: '#8BABFF',
     secondary: '#5B8FF9',
     secondaryDark: '#B5C8FF'
+  },
+  qq: {
+    primary: '#12B7F5',
+    primaryLight: '#5ECFF7',
+    primaryDark: '#7DD6F9',
+    secondary: '#5ECFF7',
+    secondaryDark: '#B3EAFD'
   }
 }

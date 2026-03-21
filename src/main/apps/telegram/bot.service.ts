@@ -502,7 +502,7 @@ export class TelegramBotService {
     appEvents.emitNewMessage(appMessage)
 
     // Publish incoming message event to infraService
-    infraService.publish('message:incoming', {
+    const traceId = infraService.publish('message:incoming', {
       platform: 'telegram',
       timestamp: msg.date,
       message: { role: 'user', content: textContent || '' },
@@ -516,7 +516,7 @@ export class TelegramBotService {
 
     // Process with Agent and reply if there's content (text, images, or files)
     if ((textContent || imageUrls.length > 0 || filePaths.length > 0) && this.bot) {
-      await this.processWithAgentAndReply(msg.chat.id, textContent, imageUrls)
+      await this.processWithAgentAndReply(msg.chat.id, String(msg.from?.id || ''), textContent, imageUrls, traceId)
     }
   }
 
@@ -727,7 +727,13 @@ export class TelegramBotService {
   /**
    * Process message with Agent and send reply
    */
-  private async processWithAgentAndReply(chatId: number, userMessage: string, imageUrls: string[] = []): Promise<void> {
+  private async processWithAgentAndReply(
+    chatId: number,
+    userId: string,
+    userMessage: string,
+    imageUrls: string[] = [],
+    traceId?: string
+  ): Promise<void> {
     console.log('[Telegram] Sending to Agent:', userMessage, imageUrls.length > 0 ? `with ${imageUrls.length} images` : '')
 
     // Set current chat ID for tool calls
@@ -741,7 +747,10 @@ export class TelegramBotService {
       }
 
       // Get response from Agent with Telegram-specific tools and images
-      const response = await agentService.processMessage(userMessage, 'telegram', imageUrls)
+      const response = await agentService.processMessage(userMessage, 'telegram', imageUrls, undefined, traceId, {
+        source: 'message',
+        userId
+      })
       // #region agent log
       fetch('http://localhost:7892/ingest/443430ae-db47-457c-ba67-1dd0ac8fcd15',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'eafdcd'},body:JSON.stringify({sessionId:'eafdcd',location:'telegram.bot.service.ts:afterProcessMessage',message:'agent response received',data:{success:response.success,hasMessage:!!response.message,error:response.error?.substring?.(0,500),busyWith:response.busyWith},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
       // #endregion

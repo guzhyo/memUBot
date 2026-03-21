@@ -11,6 +11,7 @@
     }
   },
   "nav": {
+    "local": "本地聊天",
     "telegram": "Telegram",
     "discord": "Discord",
     "whatsapp": "WhatsApp",
@@ -94,6 +95,7 @@
       "data": "数据",
       "power": "电源",
       "experimental": "实验性功能",
+      "observability": "可观测性",
       "about": "关于"
     },
     "account": {
@@ -445,6 +447,58 @@
         "enabledHint": "Agent 现在可以控制鼠标、键盘并查看屏幕"
       }
     },
+    "observability": {
+      "title": "可观测性",
+      "description": "监控日志、分布式链路追踪和运行时指标",
+      "agentActivity": "Agent 活动面板",
+      "agentActivityDesc": "在主窗口中显示实时 Agent 处理状态和工具调用",
+      "tabs": {
+        "console": "控制台",
+        "traces": "链路追踪",
+        "metrics": "指标",
+        "audit": "审计日志"
+      },
+      "actions": {
+        "refresh": "刷新",
+        "clear": "清除",
+        "export": "导出"
+      },
+      "console": {
+        "empty": "暂无控制台日志",
+        "emptyHint": "应用处理消息时日志将会显示在这里"
+      },
+      "traces": {
+        "empty": "暂无追踪记录",
+        "emptyHint": "处理消息后将会显示追踪数据",
+        "totalTokens": "总计：{{count}} tokens",
+        "tokenBreakdown": "输入：{{input}} / 输出：{{output}}"
+      },
+      "metrics": {
+        "empty": "暂无指标数据",
+        "emptyHint": "指标每 60 秒在消息处理期间聚合一次",
+        "messages": "消息",
+        "successRate": "{{rate}}% 成功",
+        "avgLatency": "平均延迟",
+        "p95": "p95：{{value}}ms",
+        "llmCalls": "LLM 调用",
+        "tokens": "{{count}} tokens",
+        "llmPerformance": "LLM 性能",
+        "inputTokens": "输入 tokens",
+        "outputTokens": "输出 tokens",
+        "avgDuration": "平均耗时",
+        "p95Duration": "p95 耗时",
+        "errors": "错误",
+        "platforms": "平台",
+        "received": "接收 {{count}}",
+        "processed": "处理 {{count}}",
+        "errorCount": "{{count}} 个错误",
+        "toolUsage": "工具使用"
+      },
+      "audit": {
+        "empty": "暂无审计日志",
+        "emptyHint": "警告和错误将记录在此以供审查"
+      }
+    },
     "data": {
       "title": "数据",
       "description": "管理数据和存储",
@@ -543,8 +597,15 @@
       "whatsapp": "连接 WhatsApp 开始聊天。",
       "slack": "在 Slack 中给机器人发消息开始聊天。",
       "line": "连接 Line 机器人开始聊天。",
-      "feishu": "连接机器人，在飞书上开始聊天。"
+      "feishu": "连接机器人，在飞书上开始聊天。",
+      "local": "直接在桌面端和 memU bot 对话。"
     }
+  },
+  "localChat": {
+    "helper": "本地聊天会保存历史，并接入现有记忆链路。",
+    "enterHint": "按 Enter 发送，Shift + Enter 换行。",
+    "clearHistory": "清空本地聊天",
+    "cleared": "本地聊天已清空"
   },
   "status": {
     "online": "在线",

@@ -78,8 +78,16 @@ export interface AppSettings {
   feishuAppId: string
   feishuAppSecret: string
   feishuAutoConnect: boolean
+  qqAppId: string
+  qqAppSecret: string
+  qqAutoConnect: boolean
   language: string
   tavilyApiKey: string
+  fileAccessBoundaryRoot: string
+  bashToolEnabled: boolean
+  bashToolRequireAuthorizedUser: boolean
+  bashToolAllowedPlatforms: Array<'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'local' | 'none'>
+  bashToolAllowedSources: Array<'message' | 'proactive' | 'system' | 'service'>
 }
 
 // Portal target ID — used by SettingsView containers

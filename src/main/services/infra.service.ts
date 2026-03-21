@@ -1,12 +1,15 @@
 import { EventEmitter } from 'events'
 import type Anthropic from '@anthropic-ai/sdk'
+import { traceService } from './trace.service'
+import { loggerService } from './logger.service'
+import { SpanStatusCode } from '@opentelemetry/api'
 
 // ==================== Types ====================
 
 /**
  * Supported platforms for messaging
  */
-export type MessagePlatform = 'telegram' | 'discord' | 'slack' | 'whatsapp' | 'line' | 'feishu' | 'none'
+export type MessagePlatform = 'telegram' | 'discord' | 'slack' | 'whatsapp' | 'line' | 'feishu' | 'qq' | 'local' | 'none'
 
 /**
  * Event types for the infra bus
@@ -24,6 +27,7 @@ export interface IncomingMessageEvent {
   platform: MessagePlatform
   timestamp: number  // Unix timestamp in seconds
   message: Anthropic.MessageParam
+  traceId?: string   // Injected automatically by InfraService.publish()
   metadata?: {
     userId?: string
     chatId?: string
@@ -58,6 +62,7 @@ export interface ProcessedMessageEvent {
   originalMessage: Anthropic.MessageParam
   response: string
   success: boolean
+  traceId?: string   // Same traceId as the originating IncomingMessageEvent
 }
 
 /**
@@ -108,6 +113,7 @@ export type InfraEventListener<T extends InfraEventType> = (
  * ```
  */
 class InfraService extends EventEmitter {
+  private logger = loggerService.withContext('InfraService')
   // Buffer for late subscribers or recovery scenarios
   private messageBuffer: Map<InfraEventType, unknown[]> = new Map()
   private readonly bufferSize = 100
@@ -122,7 +128,7 @@ class InfraService extends EventEmitter {
     this.messageBuffer.set('message:outgoing', [])
     this.messageBuffer.set('message:processed', [])
 
-    console.log('[Infra] Service initialized')
+    this.logger.info('infra.initialized')
   }
 
   /**
@@ -134,9 +140,45 @@ class InfraService extends EventEmitter {
   publish<T extends InfraEventType>(
     eventType: T,
     payload: InfraEventPayloads[T]
-  ): void {
+  ): string | undefined {
     const platformInfo = 'platform' in payload ? ` from ${payload.platform}` : ''
-    console.log(`[Infra] Publishing ${eventType}${platformInfo}`)
+
+    // Auto-inject traceId on incoming messages using OTEL root span
+    let traceId: string | undefined
+    if (eventType === 'message:incoming') {
+      const incoming = payload as IncomingMessageEvent
+      const userId = incoming.metadata?.userId as string | undefined
+      const chatId = incoming.metadata?.chatId as string | undefined
+      // startTrace now creates an OTEL root span and returns the OTEL traceId
+      traceId = traceService.startTrace(incoming.platform, userId, chatId)
+      incoming.traceId = traceId
+      this.logger.info('message.incoming', { platform: incoming.platform, traceId: traceId?.slice(0, 8) })
+    } else if (eventType === 'message:outgoing') {
+      this.logger.info('message.outgoing', { platform: (payload as { platform?: string }).platform })
+    } else if (eventType === 'message:processed') {
+      const processed = payload as ProcessedMessageEvent
+      this.logger.info('message.processed', { platform: processed.platform, success: processed.success, traceId: processed.traceId?.slice(0, 8) })
+    }
+
+    // End OTEL root span when message processing is complete
+    if (eventType === 'message:processed') {
+      const processed = payload as ProcessedMessageEvent
+      if (processed.traceId) {
+        // endTrace closes the OTEL root span; FileSpanExporter writes it to disk
+        traceService.endTrace(processed.traceId, processed.success)
+        if (!processed.success) {
+          loggerService.writeAuditEntry({
+            timestamp: new Date().toISOString(),
+            level: 'error',
+            event: 'message.processed.failed',
+            traceId: processed.traceId,
+            data: { platform: processed.platform }
+          })
+        }
+        // Force flush so FileSpanExporter writes immediately (metrics can read it)
+        traceService.forceFlush().catch(() => {})
+      }
+    }
 
     // Add to buffer (circular buffer behavior)
     const buffer = this.messageBuffer.get(eventType)
@@ -149,6 +191,8 @@ class InfraService extends EventEmitter {
 
     // Emit to all listeners
     this.emit(eventType, payload)
+
+    return traceId
   }
 
   /**

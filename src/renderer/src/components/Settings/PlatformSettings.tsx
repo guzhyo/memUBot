@@ -44,7 +44,10 @@ export function PlatformSettings(): JSX.Element {
     settings.slackAutoConnect !== originalSettings.slackAutoConnect ||
     settings.feishuAppId !== originalSettings.feishuAppId ||
     settings.feishuAppSecret !== originalSettings.feishuAppSecret ||
-    settings.feishuAutoConnect !== originalSettings.feishuAutoConnect
+    settings.feishuAutoConnect !== originalSettings.feishuAutoConnect ||
+    settings.qqAppId !== originalSettings.qqAppId ||
+    settings.qqAppSecret !== originalSettings.qqAppSecret ||
+    settings.qqAutoConnect !== originalSettings.qqAutoConnect
 
   const handleDiscard = () => {
     setSettings({ ...originalSettings })
@@ -64,7 +67,10 @@ export function PlatformSettings(): JSX.Element {
         slackAutoConnect: settings.slackAutoConnect,
         feishuAppId: settings.feishuAppId,
         feishuAppSecret: settings.feishuAppSecret,
-        feishuAutoConnect: settings.feishuAutoConnect
+        feishuAutoConnect: settings.feishuAutoConnect,
+        qqAppId: settings.qqAppId,
+        qqAppSecret: settings.qqAppSecret,
+        qqAutoConnect: settings.qqAutoConnect
       })
       if (result.success) {
         setOriginalSettings({ ...originalSettings, ...settings })
@@ -276,6 +282,60 @@ export function PlatformSettings(): JSX.Element {
                 value={settings.feishuAppSecret || ''}
                 onChange={(e) => setSettings({ ...settings, feishuAppSecret: e.target.value })}
                 className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#3370FF]/50 focus:ring-2 focus:ring-[#3370FF]/10 transition-all"
+              />
+            </div>
+          </div>
+        </div>
+        {/* QQ Bot */}
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#12B7F5]/30 shadow-sm">
+          <div className="mb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#12B7F5] to-[#0078D7] flex items-center justify-center">
+                  <span className="text-white text-[10px] font-bold">QQ</span>
+                </div>
+                <h4 className="text-[13px] font-medium text-[var(--text-primary)]">QQ</h4>
+              </div>
+              {/* Auto Connect Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-[var(--text-muted)]">{t('settings.platforms.autoConnect')}</span>
+                <button
+                  onClick={() => setSettings({ ...settings, qqAutoConnect: !settings.qqAutoConnect })}
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    settings.qqAutoConnect ? 'bg-[#12B7F5]' : 'bg-[var(--bg-input)]'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      settings.qqAutoConnect ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+            <p className="text-[11px] text-[var(--text-muted)] mt-1">
+              QQ 开放平台 AppID 和 AppSecret，在 <a href="https://q.qq.com" target="_blank" rel="noreferrer" className="underline">q.qq.com</a> 申请。
+            </p>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">App ID</label>
+              <input
+                type="text"
+                placeholder="1234567890"
+                value={settings.qqAppId || ''}
+                onChange={(e) => setSettings({ ...settings, qqAppId: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#12B7F5]/50 focus:ring-2 focus:ring-[#12B7F5]/10 transition-all"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">App Secret</label>
+              <input
+                type="password"
+                placeholder="AppSecret..."
+                value={settings.qqAppSecret || ''}
+                onChange={(e) => setSettings({ ...settings, qqAppSecret: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#12B7F5]/50 focus:ring-2 focus:ring-[#12B7F5]/10 transition-all"
               />
             </div>
           </div>
