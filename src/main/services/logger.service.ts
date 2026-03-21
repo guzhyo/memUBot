@@ -151,6 +151,8 @@ class LoggerService {
   // ==================== Structured logging API ====================
 
   info(event: string, data?: Record<string, unknown>, traceId?: string): void {
+    this.logs.push({ timestamp: Date.now(), level: 'info', message: event })
+    this._trimLogs()
     if (!this.observabilityEnabled) return
     this._log('info', event, data, traceId)
   }

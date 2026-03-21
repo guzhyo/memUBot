@@ -59,7 +59,7 @@ export type TopicScorer = (
 // LLM Topic Scorer
 // ============================================
 
-const DEFAULT_SCORER_MODEL = 'claude-haiku-4-20250514'
+const DEFAULT_SCORER_MODEL = 'claude-4-haiku-20250514'
 const SCORER_MAX_TOKENS = 2048
 
 const SCORER_SYSTEM_PROMPT =

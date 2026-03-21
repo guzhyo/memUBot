@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bot, Info, Key, Database, Shield, Server, Sparkles, Play, FlaskConical, MessageSquare, BatteryCharging } from 'lucide-react'
+import { Bot, Info, Key, Database, Shield, Server, Sparkles, Play, FlaskConical, MessageSquare, BatteryCharging, Activity } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { SETTINGS_BAR_PORTAL_ID } from '../shared'
 import { GeneralSettings } from '../GeneralSettings'
@@ -12,9 +12,10 @@ import { ServicesSettings } from '../ServicesSettings'
 import { DataSettings } from '../DataSettings'
 import { ExperimentalSettings } from '../ExperimentalSettings'
 import { PowerSettings } from '../PowerSettings'
+import { ObservabilitySettings } from '../ObservabilitySettings'
 import { AboutSettings } from '../AboutSettings'
 
-type SettingsTab = 'general' | 'platforms' | 'security' | 'model' | 'skills' | 'services' | 'mcp' | 'data' | 'power' | 'experimental' | 'about'
+type SettingsTab = 'general' | 'platforms' | 'security' | 'model' | 'skills' | 'services' | 'mcp' | 'data' | 'power' | 'experimental' | 'observability' | 'about'
 
 export function MemuSettingsView(): JSX.Element {
   const { t } = useTranslation()
@@ -31,6 +32,7 @@ export function MemuSettingsView(): JSX.Element {
     { id: 'data' as const, icon: Database, labelKey: 'settings.tabs.data' },
     { id: 'power' as const, icon: BatteryCharging, labelKey: 'settings.tabs.power' },
     { id: 'experimental' as const, icon: FlaskConical, labelKey: 'settings.tabs.experimental' },
+    { id: 'observability' as const, icon: Activity, labelKey: 'settings.tabs.observability' },
     { id: 'about' as const, icon: Info, labelKey: 'settings.tabs.about' }
   ]
 
@@ -70,7 +72,7 @@ export function MemuSettingsView(): JSX.Element {
         <div id={SETTINGS_BAR_PORTAL_ID} />
 
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-lg mx-auto py-6 px-5 pb-24">
+          <div className={`mx-auto py-6 px-5 pb-24 ${activeTab === 'observability' ? 'max-w-2xl' : 'max-w-lg'}`}>
             {activeTab === 'general' && <GeneralSettings />}
             {activeTab === 'platforms' && <PlatformSettings />}
             {activeTab === 'security' && <SecuritySettings />}
@@ -81,6 +83,7 @@ export function MemuSettingsView(): JSX.Element {
             {activeTab === 'data' && <DataSettings />}
             {activeTab === 'power' && <PowerSettings />}
             {activeTab === 'experimental' && <ExperimentalSettings />}
+            {activeTab === 'observability' && <ObservabilitySettings />}
             {activeTab === 'about' && <AboutSettings />}
           </div>
         </div>

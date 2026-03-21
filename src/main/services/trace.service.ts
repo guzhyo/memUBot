@@ -79,8 +79,8 @@ class FileSpanExporter implements SpanExporter {
     try {
       for (const span of spans) {
         const traceId = span.spanContext().traceId
-        const parentSpanId = (span as ReadableSpan & { parentSpanId?: string }).parentSpanId
-        const isRoot = !parentSpanId
+        const parentSpanId = span.parentSpanContext?.spanId
+        const isRoot = !parentSpanId || parentSpanId === '0000000000000000'
 
         const startMs = span.startTime[0] * 1e3 + Math.floor(span.startTime[1] / 1e6)
         const endMs = span.endTime[0] * 1e3 + Math.floor(span.endTime[1] / 1e6)
