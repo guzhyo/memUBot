@@ -3,6 +3,7 @@ import { feishuStorage } from './storage'
 import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
 import { infraService } from '../../services/infra.service'
+import { loggerService } from '../../services/logger.service'
 import { securityService } from '../../services/security.service'
 import { appEvents } from '../../events'
 import { app } from 'electron'
@@ -16,6 +17,7 @@ import type { StoredFeishuMessage, StoredFeishuAttachment, FeishuMessageEvent } 
  * Uses WebSocket (WSClient) for real-time message receiving
  */
 export class FeishuBotService {
+  private logger = loggerService.withContext('FeishuBotService')
   private client: lark.Client | null = null
   private wsClient: lark.WSClient | null = null
   private status: BotStatus = {
@@ -389,7 +391,7 @@ export class FeishuBotService {
     appEvents.emitFeishuNewMessage(appMessage)
 
     // Publish incoming message event to infraService
-    infraService.publish('message:incoming', {
+    const traceId = infraService.publish('message:incoming', {
       platform: 'feishu',
       timestamp: storedMsg.date,
       message: { role: 'user', content: agentMessage || '' },
@@ -403,7 +405,7 @@ export class FeishuBotService {
 
     // Process with Agent
     if ((agentMessage || imageUrls.length > 0) && this.client) {
-      await this.processWithAgentAndReply(chatId, agentMessage, imageUrls)
+      await this.processWithAgentAndReply(chatId, senderId, agentMessage, imageUrls, traceId)
     }
   }
 
@@ -667,8 +669,10 @@ export class FeishuBotService {
    */
   private async processWithAgentAndReply(
     chatId: string,
+    userId: string,
     userMessage: string,
-    imageUrls: string[] = []
+    imageUrls: string[] = [],
+    traceId?: string
   ): Promise<void> {
     console.log('[Feishu] Sending to Agent:', userMessage.substring(0, 100) + '...')
 
@@ -681,7 +685,10 @@ export class FeishuBotService {
         return
       }
 
-      const response = await agentService.processMessage(userMessage, 'feishu', imageUrls, chatId)
+      const response = await agentService.processMessage(userMessage, 'feishu', imageUrls, chatId, traceId, {
+        source: 'message',
+        userId
+      })
 
       // Check if rejected due to processing lock
       if (!response.success && response.busyWith) {
@@ -724,13 +731,41 @@ export class FeishuBotService {
             }
           })
         }
+
+        // Publish processed event to close the trace
+        infraService.publish('message:processed', {
+          platform: 'feishu',
+          timestamp: Math.floor(Date.now() / 1000),
+          originalMessage: { role: 'user', content: userMessage },
+          response: response.message,
+          success: true,
+          traceId
+        })
       } else {
         console.error('[Feishu] Agent error:', response.error)
         await this.sendText(chatId, `Error: ${response.error || 'Unknown error'}`)
+
+        infraService.publish('message:processed', {
+          platform: 'feishu',
+          timestamp: Math.floor(Date.now() / 1000),
+          originalMessage: { role: 'user', content: userMessage },
+          response: response.error || 'Unknown error',
+          success: false,
+          traceId
+        })
       }
     } catch (error) {
       console.error('[Feishu] Error processing with Agent:', error)
       await this.sendText(chatId, 'Sorry, something went wrong.')
+
+      infraService.publish('message:processed', {
+        platform: 'feishu',
+        timestamp: Math.floor(Date.now() / 1000),
+        originalMessage: { role: 'user', content: userMessage },
+        response: error instanceof Error ? error.message : 'Unknown error',
+        success: false,
+        traceId
+      })
     }
   }
 

@@ -412,12 +412,12 @@ export function McpSettings(): JSX.Element {
                 className="flex items-center justify-between p-4 cursor-pointer hover:bg-[var(--bg-card)]"
                 onClick={() => setExpandedServer(expandedServer === server.name ? null : server.name)}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   {(() => {
                     const status = getServerStatus(server.name)
                     const isConnected = status?.connected
                     return (
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center ${
                         !server.enabled 
                           ? 'bg-[var(--bg-input)] text-[var(--text-muted)]'
                           : isConnected
@@ -428,7 +428,7 @@ export function McpSettings(): JSX.Element {
                       </div>
                     )
                   })()}
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
                         {server.name}
@@ -451,12 +451,12 @@ export function McpSettings(): JSX.Element {
                         return null
                       })()}
                     </div>
-                    <p className="text-[11px] text-[var(--text-muted)]">
+                    <p className="text-[11px] text-[var(--text-muted)] truncate">
                       {server.command} {server.args.join(' ')}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <button
                     onClick={(e) => {
                       e.stopPropagation()

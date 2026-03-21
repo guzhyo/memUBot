@@ -13,6 +13,7 @@ import * as https from 'https'
 import * as http from 'http'
 import { app, screen, nativeImage } from 'electron'
 import screenshot from 'screenshot-desktop'
+import { guardFileBoundary } from '../../utils/file-boundary'
 const execAsync = promisify(exec)
 
 /**
@@ -359,6 +360,17 @@ export async function executeTextEditorTool(input: {
 }): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     const filePath = input.path
+
+    const intentMap: Record<string, 'read' | 'write' | 'create'> = {
+      view: 'read',
+      create: 'create',
+      str_replace: 'write',
+      insert: 'write',
+    }
+    const intent = intentMap[input.command]
+    if (intent) {
+      await guardFileBoundary(filePath, intent)
+    }
 
     switch (input.command) {
       case 'view': {

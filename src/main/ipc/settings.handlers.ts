@@ -406,8 +406,8 @@ export function setupSettingsHandlers(): void {
   ipcMain.handle('settings:get-logs', async (): Promise<IpcResponse> => {
     try {
       const { loggerService } = await import('../services/logger.service')
-      return { 
-        success: true, 
+      return {
+        success: true,
         data: {
           logs: loggerService.getLogs(),
           isProduction: loggerService.isProduction()
@@ -432,6 +432,62 @@ export function setupSettingsHandlers(): void {
         success: false,
         error: error instanceof Error ? error.message : String(error)
       }
+    }
+  })
+
+  // Get audit logs for a specific date (persistent structured logs)
+  ipcMain.handle('settings:get-audit-logs', async (_event, date?: string): Promise<IpcResponse> => {
+    try {
+      const { loggerService } = await import('../services/logger.service')
+      return {
+        success: true,
+        data: {
+          entries: loggerService.readAuditLogs(date),
+          availableDates: loggerService.getAvailableDates()
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    }
+  })
+
+  // Export logs for a date as JSON string (for user to save/send)
+  ipcMain.handle('settings:export-logs', async (_event, date?: string): Promise<IpcResponse<string>> => {
+    try {
+      const { loggerService } = await import('../services/logger.service')
+      const exported = loggerService.exportLogs(date)
+      return { success: true, data: exported }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    }
+  })
+
+  // Get traces for a specific date
+  ipcMain.handle('settings:get-traces', async (_event, date?: string): Promise<IpcResponse> => {
+    try {
+      const { loggerService } = await import('../services/logger.service')
+      const traces = loggerService.readTraces(date)
+      const availableDates = loggerService.getAvailableDates()
+      return { success: true, data: { traces, availableDates } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+
+  // Get today's metrics summary
+  ipcMain.handle('settings:get-metrics-summary', async (): Promise<IpcResponse> => {
+    try {
+      const { metricsService } = await import('../services/metrics.service')
+      const summary = metricsService.getTodaySummary()
+      return { success: true, data: summary }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 

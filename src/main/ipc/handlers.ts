@@ -8,12 +8,14 @@ import { setupSlackHandlers } from './slack.handlers'
 import { setupLineHandlers } from './line.handlers'
 import { setupFeishuHandlers } from './feishu.handlers'
 import { setupQQHandlers } from './qq.handlers'
+import { setupLocalHandlers } from './local.handlers'
 import { setupSettingsHandlers } from './settings.handlers'
 import { setupSecurityHandlers } from './security.handlers'
 import { setupLLMHandlers } from './llm.handlers'
 import { registerSkillsHandlers } from './skills.handlers'
 import { setupServiceHandlers } from './service.handlers'
 import { setupUpdaterHandlers } from './updater.handlers'
+import { guardFileBoundary } from '../utils/file-boundary'
 import type { IpcResponse, FileInfo } from '../types'
 
 /**
@@ -29,6 +31,7 @@ export async function setupIpcHandlers(): Promise<void> {
   setupLineHandlers()
   setupFeishuHandlers()
   setupQQHandlers()
+  setupLocalHandlers()
   setupSettingsHandlers()
   setupSecurityHandlers()
   setupLLMHandlers()
@@ -46,7 +49,9 @@ function setupAgentHandlers(): void {
     'agent:send-message',
     async (_event, message: string): Promise<IpcResponse<string>> => {
       try {
-        const response = await agentService.processMessage(message)
+        const response = await agentService.processMessage(message, 'none', [], undefined, {
+          source: 'system'
+        })
 
         if (response.success) {
           return { success: true, data: response.message }
@@ -98,6 +103,7 @@ function setupFileHandlers(): void {
     'file:read',
     async (_event, path: string): Promise<IpcResponse<string>> => {
       try {
+        await guardFileBoundary(path, 'read')
         const content = await fileService.readFile(path)
         return { success: true, data: content }
       } catch (error) {
@@ -114,6 +120,7 @@ function setupFileHandlers(): void {
     'file:write',
     async (_event, path: string, content: string): Promise<IpcResponse> => {
       try {
+        await guardFileBoundary(path, 'write')
         await fileService.writeFile(path, content)
         return { success: true }
       } catch (error) {
@@ -130,6 +137,7 @@ function setupFileHandlers(): void {
     'file:list',
     async (_event, path: string): Promise<IpcResponse<FileInfo[]>> => {
       try {
+        await guardFileBoundary(path, 'read')
         const files = await fileService.listDirectory(path)
         return { success: true, data: files }
       } catch (error) {
@@ -146,6 +154,7 @@ function setupFileHandlers(): void {
     'file:delete',
     async (_event, path: string): Promise<IpcResponse> => {
       try {
+        await guardFileBoundary(path, 'delete')
         await fileService.deleteFile(path)
         return { success: true }
       } catch (error) {
@@ -162,6 +171,7 @@ function setupFileHandlers(): void {
     'file:exists',
     async (_event, path: string): Promise<IpcResponse<boolean>> => {
       try {
+        await guardFileBoundary(path, 'stat')
         const exists = await fileService.exists(path)
         return { success: true, data: exists }
       } catch (error) {
@@ -178,6 +188,7 @@ function setupFileHandlers(): void {
     'file:info',
     async (_event, path: string): Promise<IpcResponse<FileInfo>> => {
       try {
+        await guardFileBoundary(path, 'stat')
         const info = await fileService.getFileInfo(path)
         return { success: true, data: info }
       } catch (error) {

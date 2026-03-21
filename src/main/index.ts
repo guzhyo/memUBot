@@ -10,6 +10,7 @@ import { setupIpcHandlers } from './ipc/handlers'
 import { mcpService } from './services/mcp.service'
 import { autoConnectService } from './services/autoconnect'
 import { loggerService } from './services/logger.service'
+import { traceService } from './services/trace.service'
 import { proactiveService } from './services/proactive.service'
 import { memorizationService } from './services/memorization.service'
 import { localApiService, serviceManager } from './services/back-service'
@@ -18,6 +19,7 @@ import { initializeShellEnv } from './utils/shell-env'
 import { requestAllPermissions } from './utils/permissions'
 import { powerService } from './services/power.service'
 import { autoUpdateService } from './services/auto-update.service'
+import { metricsService } from './services/metrics.service'
 
 // Initialize shell environment early (before any external processes are spawned)
 // This ensures npx, node, etc. are available in packaged apps
@@ -123,6 +125,12 @@ function createWindow(): BrowserWindow {
 app.whenReady().then(async () => {
   // Initialize logger service (captures console output in production)
   loggerService.initialize()
+
+  // Initialize OpenTelemetry trace service
+  // onTraceComplete 通知 metrics 内存聚合（文件写入由 FileSpanExporter 负责，不重复写）
+  traceService.initialize(app.getPath('userData'), (trace) => {
+    metricsService.onTraceComplete(trace)
+  })
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
@@ -245,6 +253,19 @@ async function initializeServicesAsync(): Promise<void> {
     message: 'Starting proactive service...',
     progress: 80
   })
+
+  // Sync observability setting to logger and metrics
+  try {
+    const { loadSettings: loadSettingsForObs } = await import('./config/settings.config')
+    const obsSettings = await loadSettingsForObs()
+    loggerService.setObservabilityEnabled(obsSettings.enableObservability !== false)
+  } catch {
+    // Default to enabled if settings fail to load
+  }
+
+  // Start metrics service
+  metricsService.initialize()
+  console.log('[App] Metrics service started')
 
   // Start memorization service (always, independent of proactive flag)
   try {

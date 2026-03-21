@@ -61,6 +61,7 @@ export function getToolsForPlatform(platform: MessagePlatform, options: Experime
       return [...baseTools, ...platformTools, ...visualTools, ...lineTools, ...svcTools, ...memuTools, ...mcpTools]
     case 'feishu':
       return [...baseTools, ...platformTools, ...visualTools, ...feishuTools, ...svcTools, ...memuTools, ...mcpTools]
+    case 'local':
     case 'none':
     default:
       return [...baseTools, ...platformTools, ...visualTools, ...svcTools, ...memuTools, ...mcpTools]

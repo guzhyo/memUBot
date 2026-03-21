@@ -406,7 +406,6 @@ export function GeneralSettings(): JSX.Element {
                   onChange={(e) => setSettings({ ...settings, customBaseUrl: e.target.value })}
                   className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/10 transition-all"
                 />
-                <span className="text-[10px] text-[var(--text-placeholder)] mt-1 block">Auto-detected: URL with &quot;anthropic&quot; → Anthropic, no URL + gemini model → Gemini, otherwise → OpenAI</span>
               </div>
               <div>
                 <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.general.apiKey')}</label>

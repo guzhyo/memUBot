@@ -37,7 +37,7 @@ interface MessageAttachment {
 // App message type
 interface AppMessage {
   id: string
-  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu' | 'qq'
+  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu' | 'qq' | 'local'
   chatId?: string
   senderId?: string
   senderName: string
@@ -50,7 +50,7 @@ interface AppMessage {
 
 // Bot status type
 interface BotStatus {
-  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu' | 'qq'
+  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu' | 'qq' | 'local'
   isConnected: boolean
   username?: string
   botName?: string
@@ -133,6 +133,11 @@ interface AppSettings {
   showAgentActivity: boolean
   tavilyApiKey: string
   preventSleep: boolean
+  fileAccessBoundaryRoot: string
+  bashToolEnabled: boolean
+  bashToolRequireAuthorizedUser: boolean
+  bashToolAllowedPlatforms: Array<'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'local' | 'none'>
+  bashToolAllowedSources: Array<'message' | 'proactive' | 'system' | 'service'>
 }
 
 // Agent API interface
@@ -140,6 +145,16 @@ interface AgentApi {
   sendMessage: (message: string) => Promise<IpcResponse<string>>
   getHistory: () => Promise<IpcResponse<ConversationMessage[]>>
   clearHistory: () => Promise<IpcResponse>
+}
+
+interface LocalApi {
+  sendMessage: (message: string) => Promise<IpcResponse<AppMessage>>
+  getStatus: () => Promise<IpcResponse<BotStatus>>
+  getMessages: (limit?: number) => Promise<IpcResponse<AppMessage[]>>
+  clearMessages: () => Promise<IpcResponse>
+  onNewMessage: (callback: (message: AppMessage) => void) => () => void
+  onStatusChanged: (callback: (status: BotStatus) => void) => () => void
+  onMessagesRefresh: (callback: () => void) => () => void
 }
 
 // File API interface
@@ -267,6 +282,10 @@ interface SettingsApi {
   openDevTools: () => Promise<IpcResponse>
   getLogs: () => Promise<IpcResponse<LogsData>>
   clearLogs: () => Promise<IpcResponse>
+  getAuditLogs: (date?: string) => Promise<IpcResponse<AuditLogsData>>
+  exportLogs: (date?: string) => Promise<IpcResponse<string>>
+  getTraces: (date?: string) => Promise<IpcResponse>
+  getMetricsSummary: () => Promise<IpcResponse>
   testConnection: (provider: string, config: { apiKey: string; baseUrl?: string; model: string }) => Promise<IpcResponse>
 }
 
@@ -279,6 +298,21 @@ interface LogEntry {
 interface LogsData {
   logs: LogEntry[]
   isProduction: boolean
+}
+
+interface AuditLogEntry {
+  timestamp: string
+  level: 'debug' | 'info' | 'warn' | 'error'
+  event: string
+  traceId?: string
+  durationMs?: number
+  data?: Record<string, unknown>
+  error?: string
+}
+
+interface AuditLogsData {
+  entries: AuditLogEntry[]
+  availableDates: string[]
 }
 
 // Storage info types
@@ -497,6 +531,7 @@ declare global {
   interface Window {
     electron: ElectronAPI
     agent: AgentApi
+    local: LocalApi
     file: FileApi
     telegram: TelegramApi
     discord: DiscordApi

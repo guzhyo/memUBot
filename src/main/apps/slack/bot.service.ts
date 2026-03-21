@@ -331,7 +331,7 @@ export class SlackBotService {
       // In DMs: only use thread if user is already in one, otherwise reply directly
       // In channels: always reply in thread
       const replyThreadTs = isDM ? threadTs : (threadTs || messageTs)
-      await this.processWithAgentAndReply(channelId, cleanText, replyThreadTs, say, imageUrls, downloadedFiles)
+      await this.processWithAgentAndReply(channelId, userId, cleanText, replyThreadTs, say, imageUrls, downloadedFiles)
     }
   }
 
@@ -482,6 +482,7 @@ export class SlackBotService {
    */
   private async processWithAgentAndReply(
     channelId: string,
+    userId: string,
     userMessage: string,
     threadTs: string | undefined,
     say: (message: string | { text: string; thread_ts?: string }) => Promise<unknown>,
@@ -507,7 +508,10 @@ export class SlackBotService {
         return
       }
 
-      const response = await agentService.processMessage(fullMessage, 'slack', imageUrls)
+      const response = await agentService.processMessage(fullMessage, 'slack', imageUrls, undefined, {
+        source: 'message',
+        userId
+      })
 
       // Check if rejected due to processing lock
       if (!response.success && response.busyWith) {

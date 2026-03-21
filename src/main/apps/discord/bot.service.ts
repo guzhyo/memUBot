@@ -450,7 +450,10 @@ export class DiscordBotService {
       }
 
       // Get response from Agent with Discord-specific tools
-      const response = await agentService.processMessage(fullMessage, 'discord', imageUrls)
+      const response = await agentService.processMessage(fullMessage, 'discord', imageUrls, undefined, {
+        source: 'message',
+        userId: originalMessage.author.id
+      })
 
       // Check if rejected due to processing lock
       if (!response.success && response.busyWith) {

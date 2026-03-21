@@ -10,8 +10,9 @@ import { executeLineTool } from '../../tools/line.executor'
 import { executeFeishuTool } from '../../tools/feishu.executor'
 import { executeServiceTool } from '../../tools/service.executor'
 import { executeMemuTool } from '../../tools/memu.executor'
+import { getBashToolAccessDecision } from '../bash-tool-access'
 import { mcpService } from '../mcp.service'
-import type { MessagePlatform, ToolResult } from './types'
+import type { MessagePlatform, ToolExecutionContext, ToolResult } from './types'
 
 /**
  * Execute a single tool by name
@@ -22,15 +23,28 @@ import type { MessagePlatform, ToolResult } from './types'
 export async function executeTool(
   name: string,
   input: unknown,
-  currentPlatform: MessagePlatform
+  currentPlatform: MessagePlatform,
+  executionContext?: ToolExecutionContext
 ): Promise<ToolResult> {
+  const toolContext: ToolExecutionContext = executionContext
+    ? { ...executionContext, platform: currentPlatform }
+    : {
+        platform: currentPlatform,
+        source: currentPlatform === 'none' ? 'system' : 'message',
+      }
+
   // Computer use tools
   switch (name) {
     case 'computer':
       return await executeComputerTool(input as Parameters<typeof executeComputerTool>[0])
 
-    case 'bash':
+    case 'bash': {
+      const access = await getBashToolAccessDecision(toolContext)
+      if (!access.allowed) {
+        return { success: false, error: access.reason }
+      }
       return await executeBashTool(input as Parameters<typeof executeBashTool>[0])
+    }
 
     case 'str_replace_editor':
       return await executeTextEditorTool(input as Parameters<typeof executeTextEditorTool>[0])

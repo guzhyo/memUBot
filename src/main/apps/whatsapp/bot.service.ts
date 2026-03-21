@@ -150,14 +150,14 @@ export class WhatsAppBotService {
 
     // Process with Agent and reply
     if (text) {
-      await this.processWithAgentAndReply(chatId, text)
+      await this.processWithAgentAndReply(chatId, fromId, text)
     }
   }
 
   /**
    * Process message with Agent and send reply
    */
-  private async processWithAgentAndReply(chatId: string, userMessage: string): Promise<void> {
+  private async processWithAgentAndReply(chatId: string, userId: string, userMessage: string): Promise<void> {
     console.log('[WhatsApp] Sending to Agent:', userMessage.substring(0, 50) + '...')
 
     try {
@@ -167,7 +167,10 @@ export class WhatsAppBotService {
         return
       }
 
-      const response = await agentService.processMessage(userMessage, 'whatsapp')
+      const response = await agentService.processMessage(userMessage, 'whatsapp', [], undefined, {
+        source: 'message',
+        userId
+      })
 
       // Check if rejected due to processing lock
       if (!response.success && response.busyWith) {
