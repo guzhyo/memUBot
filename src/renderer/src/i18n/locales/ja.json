@@ -77,7 +77,9 @@
     "saved": "保存しました",
     "note": "注意",
     "login": "ログイン",
-    "logout": "ログアウト"
+    "logout": "ログアウト",
+    "important": "重要",
+    "warning": "警告"
   },
   "settings": {
     "title": "設定",
@@ -151,7 +153,7 @@
       "couponRedeeming": "引き換え中...",
       "couponSuccess": "クーポンが正常に引き換えられました！",
       "couponError": "クーポンの引き換えに失敗しました",
-      "couponEmpty": "クーポンコードを入力してください"
+      "couponEmpty": "优惠券码を入力してください"
     },
     "general": {
       "title": "一般設定",
@@ -256,13 +258,41 @@
       "unbind": "バインド解除",
       "unbindConfirm": "このユーザーのバインドを解除しますか？",
       "boundAt": "バインド日時",
-      "fileBoundary": {
-        "title": "ファイルアクセス境界",
-        "description": "AIエージェントのファイル操作を特定のディレクトリに制限",
-        "placeholder": "空欄でホームディレクトリを使用",
-        "resetDefault": "デフォルトにリセット",
-        "hint": "空欄 = ユーザーホームディレクトリ。AIエージェントはこの境界内でのみファイルの読み取り、書き込み、削除が可能です。"
-      }
+      "secureStorageTitle": "セキュアストレージ管理",
+      "secureStorageHint": "機密設定を暗号化して保護",
+      "totalKeys": "総キー数",
+      "apiKeys": "API キー",
+      "mcpSecrets": "MCP シークレット",
+      "encryptionActive": "システムレベル暗号化が有効",
+      "encryptionNotAvailable": "暗号化機能が一時的に利用不可",
+      "exportBackup": "バックアップをエクスポート",
+      "importBackup": "バックアップをインポート",
+      "backupImportantTitle": "重要なお知らせ",
+      "backupImportantDesc": "必要なときに構成を復元できるように、定期的なバックアップをお勧めします。",
+      "exportBackupTitle": "暗号化されたバックアップをエクスポート",
+      "exportBackupDesc": "バックアップファイルを保護するためのパスワードを設定",
+      "importBackupTitle": "バックアップをインポート",
+      "importBackupDesc": "バックアップファイルから構成を復元",
+      "backupPasswordLabel": "バックアップパスワード",
+      "backupPasswordPlaceholder": "パスワードを入力（8文字以上）",
+      "confirmPasswordLabel": "パスワード確認",
+      "confirmPasswordPlaceholder": "パスワードを再入力",
+      "rememberPasswordWarning": "パスワードを覚えておいてください。忘れた場合、バックアップから復元できません。",
+      "enterBackupPassword": "バックアップファイルのパスワードを入力",
+      "importWarning": "インポートすると既存の構成が上書きされます。慎重に行ってください。",
+      "exporting": "エクスポート中...",
+      "importing": "インポート中...",
+      "export": "エクスポート",
+      "import": "インポート",
+      "exportSuccess": "バックアップのエクスポートに成功しました",
+      "exportFailed": "バックアップのエクスポートに失敗しました",
+      "importSuccess": "{{count}} 件のアイテムをインポートしました",
+      "importFailed": "バックアップのインポートに失敗しました",
+      "invalidBackup": "バックアップファイルが無効または破損しています",
+      "readBackupFailed": "バックアップファイルの読み込みに失敗しました",
+      "passwordMinLength": "パスワードは8文字以上必要です",
+      "passwordsNotMatch": "パスワードが一致しません",
+      "enterPassword": "パスワードを入力してください"
     },
     "model": {
       "title": "AI モデル",
@@ -316,7 +346,7 @@
       "adding": "追加中...",
       "startServer": "サーバーを起動",
       "stopServer": "サーバーを停止",
-      "builtin": "内蔵",
+      "builtin": "内置",
       "noteTitle": "注意：",
       "noteContent": "MCP サーバーはカスタムツールで AI の機能を拡張します。一般的な例として、画像生成、ウェブ検索、データベースアクセスがあります。変更を有効にするにはアプリの再起動が必要です。",
       "status": {
@@ -386,82 +416,6 @@
       "schedule": "スケジュール",
       "notifyVia": "通知先",
       "created": "作成日時"
-    },
-    "observability": {
-      "title": "オブザーバビリティ",
-      "description": "ログ、分散トレース、ランタイムメトリクスを監視",
-      "agentActivity": "エージェントアクティビティパネル",
-      "agentActivityDesc": "メインウィンドウにリアルタイムのエージェント処理状況とツール呼び出しを表示",
-      "tabs": {
-        "console": "コンソール",
-        "traces": "トレース",
-        "metrics": "メトリクス",
-        "audit": "監査ログ"
-      },
-      "actions": {
-        "refresh": "更新",
-        "clear": "クリア",
-        "export": "エクスポート"
-      },
-      "console": {
-        "empty": "コンソールログがありません",
-        "emptyHint": "アプリがメッセージを処理するとログが表示されます"
-      },
-      "traces": {
-        "empty": "トレースがありません",
-        "emptyHint": "メッセージ処理後にトレースが表示されます",
-        "totalTokens": "合計：{{count}} トークン",
-        "tokenBreakdown": "入力：{{input}} / 出力：{{output}}"
-      },
-      "metrics": {
-        "empty": "メトリクスがありません",
-        "emptyHint": "メッセージ処理中に60秒ごとに集計されます",
-        "messages": "メッセージ",
-        "successRate": "{{rate}}% 成功",
-        "avgLatency": "平均レイテンシ",
-        "p95": "p95：{{value}}ms",
-        "llmCalls": "LLM 呼び出し",
-        "tokens": "{{count}} トークン",
-        "llmPerformance": "LLM パフォーマンス",
-        "inputTokens": "入力トークン",
-        "outputTokens": "出力トークン",
-        "avgDuration": "平均所要時間",
-        "p95Duration": "p95 所要時間",
-        "errors": "エラー",
-        "platforms": "プラットフォーム",
-        "received": "{{count}} 受信",
-        "processed": "{{count}} 処理済み",
-        "errorCount": "{{count}} エラー",
-        "toolUsage": "ツール使用状況"
-      },
-      "audit": {
-        "empty": "監査ログがありません",
-        "emptyHint": "警告とエラーがここに記録されます"
-      }
-    },
-    "data": {
-      "title": "データ",
-      "description": "データとストレージを管理",
-      "storageUsed": "使用中のストレージ",
-      "storageHint": "アプリデータストレージ",
-      "openFolder": "データフォルダを開く",
-      "messagesFolder": "メッセージフォルダ",
-      "messagesFolderHint": "チャット履歴を含むフォルダを開く（JSON ファイル）",
-      "clearCache": "キャッシュを削除",
-      "clearCacheHint": "一時ファイルと生成された出力を削除",
-      "cacheCleared": "キャッシュを削除しました（{{size}} を解放）",
-      "clearFailed": "キャッシュの削除に失敗しました",
-      "folders": {
-        "telegram": "Telegram",
-        "discord": "Discord",
-        "slack": "Slack",
-        "feishu": "飞书",
-        "mcpOutput": "MCP 出力",
-        "agentOutput": "Agent 出力",
-        "skills": "Skills",
-        "cache": "キャッシュ",
-        "other": "その他"
-      }
     },
     "power": {
       "title": "電源設定",

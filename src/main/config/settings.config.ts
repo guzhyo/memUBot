@@ -2,6 +2,7 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import { app } from 'electron'
 import type { MessagePlatform, ToolExecutionSource } from '../services/agent/types'
+import { secureStorage, isSensitiveField, SENSITIVE_FIELDS, type SensitiveField } from '../services/secure-storage.service'
 
 const CONFIG_DIR = 'config'
 const SETTINGS_FILE = 'settings.json'
@@ -107,7 +108,7 @@ export interface AppSettings {
   enableSessionCompression: boolean
   maxArchives: number
   maxRecentMessages: number
-  archiveChunkSize: number
+  archiveChunkSize: number;
 
   memuBaseUrl: string
   memuApiKey: string
@@ -284,11 +285,15 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 /**
  * Settings manager
+ * Uses secure storage for sensitive fields (API keys, tokens)
+ * Uses regular JSON file for non-sensitive settings
  */
 class SettingsManager {
   private configPath: string
   private settings: AppSettings = { ...DEFAULT_SETTINGS }
   private initialized = false
+  private settingsLoaded = false  // Track if settings were successfully loaded from file
+  private migrationPerformed = false
 
   constructor() {
     this.configPath = path.join(app.getPath('userData'), CONFIG_DIR)
@@ -300,6 +305,9 @@ class SettingsManager {
   async initialize(): Promise<void> {
     if (this.initialized) return
 
+    // Initialize secure storage first
+    await secureStorage.initialize()
+
     try {
       await fs.mkdir(this.configPath, { recursive: true })
       const filePath = path.join(this.configPath, SETTINGS_FILE)
@@ -308,22 +316,76 @@ class SettingsManager {
 
       // Merge with defaults to ensure all fields exist
       this.settings = { ...DEFAULT_SETTINGS, ...saved }
-      
+      this.settingsLoaded = true  // Mark as successfully loaded
+
       // Migration: ensure provider is set (for existing users)
       if (!saved.llmProvider && saved.claudeApiKey) {
         console.log('[Settings] Setting default LLM provider to Claude (existing user)')
         this.settings.llmProvider = 'claude'
         await this.saveToFile()
       }
-      
+
+      // Migration: migrate sensitive data from plain text to secure storage
+      await this.migrateSensitiveData()
+
       console.log('[Settings] Loaded settings')
-    } catch {
-      // File doesn't exist, use defaults
-      this.settings = { ...DEFAULT_SETTINGS }
-      console.log('[Settings] Using default settings')
+    } catch (error) {
+      // Check error type - only use defaults if file truly doesn't exist
+      const err = error as NodeJS.ErrnoException
+      if (err.code === 'ENOENT') {
+        // File doesn't exist, use defaults (fresh install)
+        this.settings = { ...DEFAULT_SETTINGS }
+        this.settingsLoaded = true  // Treat as successful load with defaults
+        console.log('[Settings] No settings file found, using defaults')
+      } else {
+        // File exists but corrupted (JSON parse error, read error, etc.)
+        // If we already loaded settings before (this.settingsLoaded is true), preserve them
+        // Otherwise use defaults
+        if (!this.settingsLoaded) {
+          this.settings = { ...DEFAULT_SETTINGS }
+          console.error('[Settings] Settings file corrupted, using defaults:', err.message)
+        } else {
+          console.error('[Settings] Settings file error, preserving current settings:', err.message)
+        }
+      }
     }
 
     this.initialized = true
+  }
+
+  /**
+   * Migrate sensitive data from plain text to secure storage
+   * This runs once when upgrading from older versions
+   */
+  private async migrateSensitiveData(): Promise<void> {
+    if (this.migrationPerformed) return
+    
+    let migratedCount = 0
+    
+    for (const field of SENSITIVE_FIELDS) {
+      // Skip githubToken as it's not in AppSettings interface
+      if (field === 'githubToken') continue
+      const value = (this.settings as unknown as Record<string, string | number | boolean>)[field]
+      if (value && typeof value === 'string' && value.length > 0) {
+        // Check if already in secure storage
+        const existing = await secureStorage.get(field)
+        if (!existing) {
+          // Migrate to secure storage
+          await secureStorage.set(field, value)
+          // Clear from plain text settings (keep empty string for structure)
+          this.settings[field] = ''
+          migratedCount++
+          console.log(`[Settings] Migrated ${field} to secure storage`)
+        }
+      }
+    }
+    
+    if (migratedCount > 0) {
+      await this.saveToFile()
+      console.log(`[Settings] Migration complete: ${migratedCount} fields migrated to secure storage`)
+    }
+    
+    this.migrationPerformed = true
   }
 
   /**
@@ -337,22 +399,45 @@ class SettingsManager {
 
   /**
    * Get all settings
+   * Sensitive fields are populated from secure storage
    */
   async getSettings(): Promise<AppSettings> {
     await this.ensureInitialized()
-    return { ...this.settings }
+    
+    // Create a copy of settings
+    const settings = { ...this.settings }
+    
+    // Populate sensitive fields from secure storage
+    for (const field of SENSITIVE_FIELDS) {
+      if (field === 'githubToken') continue // githubToken is not in AppSettings
+      const secureValue = await secureStorage.get(field)
+      if (secureValue !== null) {
+        ;(settings as Record<string, unknown>)[field] = secureValue
+      }
+    }
+    
+    return settings
   }
 
   /**
    * Get a specific setting
+   * For sensitive fields, reads from secure storage
    */
   async get<K extends keyof AppSettings>(key: K): Promise<AppSettings[K]> {
     await this.ensureInitialized()
+    
+    // If it's a sensitive field, read from secure storage
+    if (isSensitiveField(key as string)) {
+      const secureValue = await secureStorage.get(key as string)
+      return (secureValue ?? '') as unknown as AppSettings[K]
+    }
+    
     return this.settings[key]
   }
 
   /**
    * Save current settings to file
+   * Only saves non-sensitive fields
    */
   private async saveToFile(): Promise<void> {
     const filePath = path.join(this.configPath, SETTINGS_FILE)
@@ -361,18 +446,61 @@ class SettingsManager {
 
   /**
    * Update settings
+   * Sensitive fields are stored in secure storage, others in regular file
    */
   async updateSettings(updates: Partial<AppSettings>): Promise<void> {
     await this.ensureInitialized()
-    this.settings = { ...this.settings, ...updates }
+    
+    // Separate sensitive and non-sensitive updates
+    const sensitiveUpdates: Record<string, string> = {}
+    const normalUpdates: Partial<AppSettings> = {}
+    
+    for (const [key, value] of Object.entries(updates)) {
+      if (isSensitiveField(key)) {
+        if (typeof value === 'string') {
+          sensitiveUpdates[key] = value
+        }
+      } else {
+        ;(normalUpdates as Record<string, unknown>)[key] = value
+      }
+    }
+    
+    // Handle githubToken separately if provided
+    if ('githubToken' in updates) {
+      const ghToken = (updates as Record<string, unknown>)['githubToken']
+      if (typeof ghToken === 'string') {
+        await secureStorage.set('githubToken', ghToken)
+      }
+    }
+    
+    // Save sensitive fields to secure storage
+    for (const [key, value] of Object.entries(sensitiveUpdates)) {
+      if (value && value.length > 0) {
+        await secureStorage.set(key, value)
+      } else {
+        await secureStorage.delete(key)
+      }
+      // Keep empty string in settings.json for structure consistency
+      ;(this.settings as unknown as Record<string, unknown>)[key] = ''
+    }
+    
+    // Save non-sensitive fields to regular file
+    this.settings = { ...this.settings, ...normalUpdates }
     await this.saveToFile()
+    
     console.log('[Settings] Settings saved')
   }
 
   /**
    * Reset to defaults
+   * Clears both regular settings and secure storage
    */
   async resetSettings(): Promise<void> {
+    // Clear all sensitive data from secure storage
+    for (const field of SENSITIVE_FIELDS) {
+      await secureStorage.delete(field)
+    }
+    
     this.settings = { ...DEFAULT_SETTINGS }
     await this.saveToFile()
     console.log('[Settings] Settings reset to defaults')
@@ -380,28 +508,31 @@ class SettingsManager {
 
   /**
    * Get effective LLM configuration based on current provider
+   * Reads API key from secure storage
    */
-  getEffectiveLLMConfig(): { apiKey: string; baseUrl: string; model: string; provider: LLMProvider } {
+  async getEffectiveLLMConfig(): Promise<{ apiKey: string; baseUrl: string; model: string; provider: LLMProvider }> {
+    await this.ensureInitialized()
+    
     const provider = this.settings.llmProvider || 'claude'
     
     switch (provider) {
       case 'claude':
         return {
-          apiKey: this.settings.claudeApiKey,
+          apiKey: await secureStorage.get('claudeApiKey') ?? '',
           baseUrl: '',  // Use Anthropic default
           model: this.settings.claudeModel || 'claude-opus-4-5',
           provider
         }
       case 'minimax':
         return {
-          apiKey: this.settings.minimaxApiKey,
+          apiKey: await secureStorage.get('minimaxApiKey') ?? '',
           baseUrl: 'https://api.minimaxi.com/anthropic',
           model: this.settings.minimaxModel || 'MiniMax-M2.1',
           provider
         }
       case 'zenmux':
         return {
-          apiKey: this.settings.zenmuxApiKey,
+          apiKey: await secureStorage.get('zenmuxApiKey') ?? '',
           baseUrl: 'https://zenmux.ai/api/anthropic',
           model: this.settings.zenmuxModel,
           provider
@@ -415,33 +546,85 @@ class SettingsManager {
           }
         case 'openai':
           return {
-            apiKey: this.settings.openaiApiKey,
+            apiKey: await secureStorage.get('openaiApiKey') ?? '',
             baseUrl: '',
             model: this.settings.openaiModel || 'gpt-4o',
             provider
           }
         case 'gemini':
           return {
-            apiKey: this.settings.geminiApiKey,
+            apiKey: await secureStorage.get('geminiApiKey') ?? '',
             baseUrl: '',
             model: this.settings.geminiModel || 'gemini-2.5-pro',
             provider
           }
       case 'custom':
         return {
-          apiKey: this.settings.customApiKey,
+          apiKey: await secureStorage.get('customApiKey') ?? '',
           baseUrl: this.settings.customBaseUrl,
           model: this.settings.customModel,
           provider
         }
       default:
         return {
-          apiKey: this.settings.claudeApiKey,
+          apiKey: await secureStorage.get('claudeApiKey') ?? '',
           baseUrl: '',
           model: this.settings.claudeModel || 'claude-opus-4-5',
           provider: 'claude'
         }
     }
+  }
+
+  /**
+   * Get memu API configuration
+   * Reads API key from secure storage
+   */
+  async getMemuConfig(): Promise<{ baseUrl: string; apiKey: string; userId: string; agentId: string }> {
+    await this.ensureInitialized()
+    
+    return {
+      baseUrl: this.settings.memuBaseUrl,
+      apiKey: await secureStorage.get('memuApiKey') ?? '',
+      userId: this.settings.memuUserId,
+      agentId: this.settings.memuAgentId
+    }
+  }
+
+  /**
+   * Get proactive memu configuration
+   */
+  async getProactiveMemuConfig(): Promise<{ baseUrl: string; apiKey: string; userId: string; agentId: string }> {
+    await this.ensureInitialized()
+    
+    return {
+      baseUrl: this.settings.memuBaseUrl,
+      apiKey: await secureStorage.get('memuApiKey') ?? '',
+      userId: this.settings.memuProactiveUserId,
+      agentId: this.settings.memuProactiveAgentId
+    }
+  }
+
+  /**
+   * Get Tavily API key from secure storage
+   */
+  async getTavilyApiKey(): Promise<string> {
+    await this.ensureInitialized()
+    return await secureStorage.get('tavilyApiKey') ?? ''
+  }
+
+  /**
+   * Check if encryption is available
+   */
+  isEncryptionAvailable(): boolean {
+    return secureStorage.isEncryptionAvailable()
+  }
+
+  /**
+   * Get secure storage statistics
+   */
+  async getSecureStorageStats(): Promise<{ totalKeys: number; sensitiveKeys: number; mcpEnvKeys: number }> {
+    await this.ensureInitialized()
+    return await secureStorage.getStats()
   }
 }
 
@@ -460,3 +643,7 @@ export async function saveSettings(updates: Partial<AppSettings>): Promise<void>
 export async function getSetting<K extends keyof AppSettings>(key: K): Promise<AppSettings[K]> {
   return settingsManager.get(key)
 }
+
+// Export sensitive fields for use in other modules
+export { SENSITIVE_FIELDS, isSensitiveField }
+export type { SensitiveField }

@@ -350,6 +350,34 @@ interface SecurityCodeInfo {
   remainingSeconds?: number
 }
 
+// Secure storage stats type
+interface SecureStorageStats {
+  totalKeys: number
+  sensitiveKeys: number
+  mcpEnvKeys: number
+  isAvailable: boolean
+}
+
+// Backup validation result
+interface BackupValidationResult {
+  valid: boolean
+  message: string
+  timestamp?: number
+}
+
+// Backup import result
+interface BackupImportResult {
+  success: boolean
+  message: string
+  imported: number
+}
+
+// Dialog result type
+interface DialogResult {
+  canceled: boolean
+  filePath?: string
+}
+
 // Security API interface
 interface SecurityApi {
   generateCode: () => Promise<IpcResponse<{ code: string }>>
@@ -358,6 +386,16 @@ interface SecurityApi {
   removeBoundUser: (userId: number, platform?: Platform) => Promise<IpcResponse<{ removed: boolean }>>
   removeBoundUserById: (uniqueId: string, platform: Platform) => Promise<IpcResponse<{ removed: boolean }>>
   clearBoundUsers: (platform?: Platform) => Promise<IpcResponse>
+  // Secure Storage Management
+  getSecureStorageStats: () => Promise<IpcResponse<SecureStorageStats>>
+  exportBackup: (password: string) => Promise<IpcResponse<string>>
+  importBackup: (backupData: string, password: string) => Promise<IpcResponse<BackupImportResult>>
+  validateBackup: (backupData: string) => Promise<IpcResponse<BackupValidationResult>>
+  clearSecureStorage: () => Promise<IpcResponse>
+  showSaveBackupDialog: () => Promise<IpcResponse<DialogResult>>
+  showOpenBackupDialog: () => Promise<IpcResponse<DialogResult>>
+  readBackupFile: (filePath: string) => Promise<IpcResponse<string>>
+  writeBackupFile: (filePath: string, content: string) => Promise<IpcResponse>
 }
 
 // LLM status type

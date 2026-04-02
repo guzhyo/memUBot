@@ -3,6 +3,10 @@ productName: memU bot
 directories:
   buildResources: build
 files:
+  # Include build output
+  - out/**
+  - package.json
+  # Exclude source and dev files
   - '!**/.vscode/*'
   - '!src/*'
   - '!scripts/*'
@@ -35,6 +39,12 @@ asarUnpack:
   - node_modules/@nut-tree-fork/**/build/**
   - node_modules/@nut-tree-fork/**/*.node
   - node_modules/@nut-tree-fork/**/*.dll
+  # Native modules for dependencies
+  - node_modules/**/*.node
+  # Ensure all native dependencies are unpacked
+  - node_modules/bufferutil/**
+  - node_modules/utf-8-validate/**
+  - node_modules/zlib-sync/**
 win:
   executableName: memu-bot
   # Windows icon - with rounded corners (electron-builder auto-converts PNG to ICO)
