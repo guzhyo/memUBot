@@ -141,5 +141,27 @@ export function registerSkillsHandlers(): void {
     }
   })
 
+  // Read skill .env file
+  ipcMain.handle('skills:readEnv', async (_, skillId: string) => {
+    try {
+      const envVars = await skillsService.readSkillEnv(skillId)
+      return { success: true, data: envVars }
+    } catch (error) {
+      console.error('[Skills IPC] Failed to read skill env:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  // Write skill .env file
+  ipcMain.handle('skills:writeEnv', async (_, skillId: string, envVars: Record<string, string>) => {
+    try {
+      await skillsService.writeSkillEnv(skillId, envVars)
+      return { success: true }
+    } catch (error) {
+      console.error('[Skills IPC] Failed to write skill env:', error)
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
   console.log('[Skills IPC] Handlers registered')
 }

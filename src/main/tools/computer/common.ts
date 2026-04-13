@@ -303,15 +303,19 @@ export async function executeBashTool(input: {
   timeout?: number
 }): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
-    const timeout = input.timeout || 30000
+    const timeout = input.timeout || 600000
 
     console.log('[Bash] Executing:', input.command)
+    console.log('[Bash] HTTP_PROXY:', process.env.HTTP_PROXY || '(not set)')
+    console.log('[Bash] HTTPS_PROXY:', process.env.HTTPS_PROXY || '(not set)')
+    console.log('[Bash] NO_PROXY:', process.env.NO_PROXY || '(not set)')
 
     const { stdout, stderr } = (await execAsync(input.command, {
       timeout,
       maxBuffer: 10 * 1024 * 1024,
       cwd: app.getPath('home'),
-      encoding: 'buffer'
+      encoding: 'buffer',
+      env: { ...process.env, PYTHONUTF8: '1' }
     })) as unknown as { stdout: Buffer; stderr: Buffer }
 
     const stdoutStr = decodeOutput(stdout)

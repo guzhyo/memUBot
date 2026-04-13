@@ -470,6 +470,8 @@ interface SkillsApi {
   openDirectory: () => Promise<IpcResponse>
   setGitHubToken: (token: string | undefined) => Promise<IpcResponse>
   getGitHubToken: () => Promise<IpcResponse<string | undefined>>
+  readEnv: (skillId: string) => Promise<IpcResponse<Record<string, string>>>
+  writeEnv: (skillId: string, envVars: Record<string, string>) => Promise<IpcResponse>
 }
 
 // Service type

@@ -264,7 +264,10 @@ const skillsApi = {
   openDirectory: () => ipcRenderer.invoke('skills:openDirectory'),
   setGitHubToken: (token: string | undefined) =>
     ipcRenderer.invoke('skills:setGitHubToken', token),
-  getGitHubToken: () => ipcRenderer.invoke('skills:getGitHubToken')
+  getGitHubToken: () => ipcRenderer.invoke('skills:getGitHubToken'),
+  readEnv: (skillId: string) => ipcRenderer.invoke('skills:readEnv', skillId),
+  writeEnv: (skillId: string, envVars: Record<string, string>) =>
+    ipcRenderer.invoke('skills:writeEnv', skillId, envVars)
 }
 
 // Services API (background services management)

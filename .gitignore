@@ -47,3 +47,8 @@ nanobanana-output/
 electron-builder.mode.json
 
 _local_test/
+
+# Skill test outputs
+landing-page/
+images/
+profile.json
