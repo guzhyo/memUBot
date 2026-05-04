@@ -49,6 +49,9 @@ export function SkillsSettings(): JSX.Element {
   const [importing, setImporting] = useState(false)
   const [githubToken, setGithubToken] = useState('')
   const [tokenSaved, setTokenSaved] = useState(false)
+  const [envModal, setEnvModal] = useState<{ skillId: string; skillName: string } | null>(null)
+  const [envVars, setEnvVars] = useState<Record<string, string>>({})
+  const [envSaving, setEnvSaving] = useState(false)
 
   // Load installed skills and GitHub token
   const loadInstalledSkills = useCallback(async () => {
@@ -171,6 +174,27 @@ export function SkillsSettings(): JSX.Element {
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to delete skill' })
     }
+  }
+
+  // Open env configure modal
+  const openEnvModal = async (skill: LocalSkill) => {
+    const result = await window.skills.readEnv(skill.id)
+    setEnvVars(result.success && result.data ? result.data : {})
+    setEnvModal({ skillId: skill.id, skillName: skill.name })
+  }
+
+  // Save env vars
+  const saveEnvVars = async () => {
+    if (!envModal) return
+    setEnvSaving(true)
+    try {
+      await window.skills.writeEnv(envModal.skillId, envVars)
+      setMessage({ type: 'success', text: `API keys saved for "${envModal.skillName}"` })
+      setEnvModal(null)
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to save API keys' })
+    }
+    setEnvSaving(false)
   }
 
   // Open skills directory
@@ -296,6 +320,14 @@ export function SkillsSettings(): JSX.Element {
                           skill.enabled ? 'translate-x-5' : 'translate-x-0.5'
                         }`}
                       />
+                    </button>
+                    {/* Configure API Keys */}
+                    <button
+                      onClick={() => openEnvModal(skill)}
+                      className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-input)] transition-all"
+                      title="Configure API Keys"
+                    >
+                      <Key className="w-4 h-4" />
                     </button>
                     {/* Delete */}
                     <button
@@ -496,6 +528,79 @@ export function SkillsSettings(): JSX.Element {
               )
             })
           )}
+        </div>
+      )}
+
+      {/* Env configure modal */}
+      {envModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[var(--bg-base)] border border-[var(--border-color)] rounded-lg p-6 w-[480px] shadow-xl">
+            <h3 className="text-[14px] font-medium text-[var(--text-primary)] mb-1">
+              Configure API Keys
+            </h3>
+            <p className="text-[12px] text-[var(--text-muted)] mb-2">
+              Keys are stored locally in the skill&apos;s .env file and loaded via shell when the skill runs.
+            </p>
+            <div className="text-[11px] text-[var(--text-muted)] bg-[var(--bg-secondary)] rounded px-3 py-2 mb-4 font-mono space-y-0.5">
+              <div className="text-[10px] text-[var(--text-muted)] mb-1 font-sans">e.g.</div>
+              <div><span className="text-[var(--text-primary)]">OPENAI_API_KEY</span> = sk-xxxxxxxx</div>
+              <div><span className="text-[var(--text-primary)]">OPENAI_BASE_URL</span> = https://zenmux.ai/api/v1</div>
+              <div><span className="text-[var(--text-primary)]">OPENAI_MODEL</span> = openai/gpt-image-1.5</div>
+            </div>
+            <div className="space-y-2 mb-4">
+              {Object.entries(envVars).map(([key, value]) => (
+                <div key={key} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={key}
+                    onChange={(e) => {
+                      const newKey = e.target.value
+                      setEnvVars((prev) => {
+                        const entries = Object.entries(prev).map(([k, v]) => k === key ? [newKey, v] : [k, v])
+                        return Object.fromEntries(entries)
+                      })
+                    }}
+                    className="w-40 px-2 py-1.5 text-[12px] bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded text-[var(--text-primary)] font-mono"
+                    placeholder="KEY_NAME"
+                  />
+                  <input
+                    type="password"
+                    value={value}
+                    onChange={(e) => setEnvVars((prev) => ({ ...prev, [key]: e.target.value }))}
+                    className="flex-1 px-2 py-1.5 text-[12px] bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded text-[var(--text-primary)]"
+                    placeholder="value"
+                  />
+                  <button
+                    onClick={() => setEnvVars((prev) => { const n = { ...prev }; delete n[key]; return n })}
+                    className="p-1.5 text-[var(--text-muted)] hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setEnvVars((prev) => ({ ...prev, '': '' }))}
+              className="text-[12px] text-[var(--primary)] hover:opacity-80 mb-4 block"
+            >
+              + Add key
+            </button>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setEnvModal(null)}
+                className="px-4 py-2 text-[13px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveEnvVars}
+                disabled={envSaving}
+                className="px-4 py-2 text-[13px] bg-[var(--primary)] text-white rounded-md hover:opacity-90 disabled:opacity-50"
+              >
+                {envSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

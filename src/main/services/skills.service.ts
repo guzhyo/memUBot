@@ -619,13 +619,55 @@ class SkillsService {
     for (const skill of enabledSkills) {
       const content = await this.getSkillContent(skill.id)
       if (content) {
-        contents.push(`\n--- SKILL: ${skill.name} ---\n${content}\n`)
+        const skillDir = path.join(this.skillsDir, skill.id).replace(/\\/g, '/')
+        const skillEnv = path.join(this.skillsDir, skill.id, '.env').replace(/\\/g, '/')
+        const resolvedContent = content
+          .replace(/\{SKILL_DIR\}/g, skillDir)
+          .replace(/\{SKILL_ENV\}/g, skillEnv)
+        contents.push(`\n--- SKILL: ${skill.name} ---\n${resolvedContent}\n`)
       }
     }
 
     return contents.length > 0
       ? `\n\n## Available Skills\n\nYou have access to the following skills:\n${contents.join('\n')}`
       : ''
+  }
+
+  /**
+   * Read environment variables from a skill's .env file
+   */
+  async readSkillEnv(skillId: string): Promise<Record<string, string>> {
+    await this.initialize()
+    const envPath = path.join(this.skillsDir, skillId, '.env')
+    try {
+      const content = await fs.readFile(envPath, 'utf-8')
+      const result: Record<string, string> = {}
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed || trimmed.startsWith('#')) continue
+        const eqIndex = trimmed.indexOf('=')
+        if (eqIndex > 0) {
+          result[trimmed.slice(0, eqIndex).trim()] = trimmed.slice(eqIndex + 1).trim()
+        }
+      }
+      return result
+    } catch {
+      return {}
+    }
+  }
+
+  /**
+   * Write environment variables to a skill's .env file
+   */
+  async writeSkillEnv(skillId: string, envVars: Record<string, string>): Promise<void> {
+    await this.initialize()
+    const envPath = path.join(this.skillsDir, skillId, '.env')
+    const content = Object.entries(envVars)
+      .filter(([key]) => key.trim())
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n')
+    await fs.writeFile(envPath, content, 'utf-8')
+    console.log(`[Skills] Wrote .env for skill: ${skillId}`)
   }
 
   /**
